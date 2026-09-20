@@ -190,6 +190,16 @@ La séquence indique des priorités, pas des barrières entre tous les domaines.
 
 Le chantier global storefront/offres fournit les offres et sellers utilisables ; le portail les consomme et montre le suivi correspondant. Vérifier les sellers déjà rapportés avant toute création. Plusieurs expéditions ne prouvent pas plusieurs vendeurs. Cette dépendance ne transfère ni l’administration marketplace ni le diagnostic checkout au portail.
 
+### Intégration des lots flotte / Find Parts — 20 septembre
+
+Les lots de Claude avancent les tranches 2 et 5 et le cas 1D : flotte de 16 fixtures, fiche véhicule, recherche catalogue, VIN de démonstration, facettes et ajout au brouillon sont codés. Intégration **avec réserves**, revue dans [REVUE-FLOTTE-PARTS.md](REVUE-FLOTTE-PARTS.md). Recherche catalogue réelle publique ; prix contractuels, fitment réel et recette connectée de bout en bout ne sont pas acquis.
+
+Priorité immédiate : corriger les ajouts concurrents/quantités du brouillon (Codex), et facettes VIN/pagination/offres publiques/recherche exacte (lot proposé à Claude dans [LOT-CLAUDE-SUIVANT.md](LOT-CLAUDE-SUIVANT.md)). Périmètres de fichiers séparés ; les fichiers partagés API/session/section restent à Codex. Recette manuelle William ensuite, sans répétition navigateur agent.
+
+En parallèle, le handoff checkout et la lecture des devis personnalisés sont codés par Codex mais restent à qualifier en réel. La lecture devis utilise désormais Master Data quotes sous session acheteur et filtre organisation ; un refus API éventuel ne vaut pas absence de devis. Le passage checkout reprend le mécanisme local FastStore par orderFormId, sans transférer de cookie d’authentification.
+
+Aucun retrait du périmètre Volvo : WO, fiche produit, restrictions, supersessions, sourcing/délais, fitment, commande précédente et XLSX restent au backlog. Les « hors périmètre » du handoff désignent uniquement les limites de ces deux lots.
+
 ### Ordre opérationnel actualisé après revue du code
 
 | Étape | Résultat concret attendu avant de poursuivre |
@@ -201,7 +211,7 @@ Le chantier global storefront/offres fournit les offres et sellers utilisables ;
 | 4 — Volvo et extensions | Flotte/VIN/WO, véhicule/pièces, concessionnaire et XLSX ; puis retours, garanties, Parts Assure, services et P2. Périmètre des tranches initiales conservé. |
 | 5 — Publication | Choisir d’abord le flux d’authentification de production, puis adapter stockage des sessions, domaines/origines et cookies ; préparer GitHub et Vercel. Ne pas présumer qu’un changement de variable suffit ni imposer un flux VTEX ID non qualifié. |
 
-Un point de sauvegarde Git local doit être établi au prochain lot de réalisation, avant de nouvelles modifications fonctionnelles. Le push et le déploiement restent distincts. Lisibilité/formatage, configuration des domaines et compteur de connexion sont traités avec les modules concernés, sans lancer une refonte générale.
+Le point initial Git d0fb2d3 existe. Un nouveau snapshot commun des travaux parallèles doit être établi après cette revue, sans assimiler sauvegarde et validation fonctionnelle. Le push et le déploiement restent distincts. Lisibilité/formatage, configuration des domaines et compteur de connexion sont traités avec les modules concernés, sans lancer une refonte générale.
 
 ### Méthode de travail et maîtrise des tokens
 

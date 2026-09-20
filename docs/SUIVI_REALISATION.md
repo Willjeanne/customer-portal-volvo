@@ -90,3 +90,19 @@ Build de production final réussi le 20 septembre (compilation, TypeScript, gén
 ## 20 septembre 2026 — méthode révisée après feedback
 
 Plan/cadrage, START.md et CLAUDE.md actualisés uniquement. Priorité à la confirmation des sources du lot, réutilisation avec contrôles de portée, premier point Git au prochain lot fonctionnel, recette manuelle confiée à William (3 à 5 actions), contrôles automatiques regroupés. Statut devis corrigé : API quoting répond, source attendue non confirmée. Commandes détaillées et transfert panier restent non validés sur données réelles. Pas de changement applicatif, de test, de commit ou d’action VTEX durant cette mise à jour documentaire.
+
+## 20 septembre — sources et contrôle réel des droits branché
+
+Point de sauvegarde initial d0fb2d3, sans push. Sources cartographiées dans SOURCES_PARCOURS.md. William confirme create-quote comme référence API des devis personnalisés ; les wireframes/look and feel restent la référence visuelle. Pas de lecture Master Data non filtrée ajoutée.
+
+PlaceOrders confirmé dans la documentation officielle Storefront Roles, endpoint shopper BFF repris du client commerce FastStore. Vérification sans cache à la préparation et avant transfert, booléen strict, refus/indisponibilité distincts, aucune permission globale attribuée. Consultation du panier de la session via GET cart, sans création à la lecture ni exposition des cookies. Prettier installé et fichiers touchés formatés.
+
+22 tests réussis dont intégration HTTP locale ; TypeScript, lint et build réussis. Aucun contrôle navigateur agent ni ajout réel effectué dans ce lot. Recette William : vérifier une référence disponible, lire le résultat permission/stock, transférer si autorisé puis Refresh portal cart ; rapporter le message exact sinon. Handoff checkout et raccordement des devis personnalisés restent à réaliser.
+
+## Validation manuelle William — panier local
+
+William répond « ça fonctionne » à la recette vérification articles → transfert → Refresh portal cart. Parcours validé par retour utilisateur ; références et quantités exactes non fournies. Aucune répétition navigateur agent. Cette validation ne couvre ni le passage de commande ni le handoff checkout ni les devis/listes. Prochaine étape : handoff du panier et raccordement des devis personnalisés, avec sources listes restant à qualifier.
+
+## 20 septembre — revue intégrée des deux lots Claude
+
+Relecture des contrats et chemins flotte/parts ; cinq changements acceptés, réserves et défauts concrets dans REVUE-FLOTTE-PARTS.md. Plan global mis à jour, scope non réduit. Mission proposée à Claude dans LOT-CLAUDE-SUIVANT.md, aucun envoi externe ni agent lancé. Contrôle ciblé : TypeScript réussi, 37 tests passés / 1 HTTP sauté. Aucun changement applicatif effectué dans cette revue, aucun parcours navigateur répété. Le dernier code checkout/devis Codex antérieur à la revue reste en attente de recette réelle.

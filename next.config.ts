@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
+  // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+  // Images produit du catalogue volvoemea, servies par le CDN VTEX.
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "volvoemea.vtexassets.com", pathname: "/arquivos/**" },
+    ],
+  },
+  // <<< CLAUDE
   async headers() {
     return [
       {

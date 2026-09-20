@@ -8,6 +8,8 @@ Lire [CLAUDE.md](CLAUDE.md) pour comprendre en une lecture l’avancement, les d
 
 L’objectif est de démontrer les use cases Volvo avec VTEX et du code custom dans une interface Volvo indépendante du site existant. Compte : `volvoemea`. Organisation de démonstration : WanderGarage. Le site existant reste une référence en lecture seule et conserve le parcours anonyme avec guest checkout. Le checkout est une dépendance partagée : ne pas reprendre son diagnostic.
 
+Revue des travaux parallèles : [réserves flotte/parts](docs/REVUE-FLOTTE-PARTS.md) et [mission proposée à Claude](docs/LOT-CLAUDE-SUIVANT.md). Le plan global reste dans le cadrage.
+
 ## Documents actifs
 
 1. [Cadrage et plan de réalisation](docs/CADRAGE_PORTAIL_VOLVO.md) : périmètre, architecture, navigation canonique, parcours et tranches.

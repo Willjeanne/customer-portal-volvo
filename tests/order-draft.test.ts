@@ -17,6 +17,11 @@ test("invalid imports cannot partially replace a draft", () => {
 test("draft preparation is distinct from permission to purchase", () => {
   const context = makePreviewContext("procurement");
   assert.equal(canVisit(context,"quick-order"),true);
-  assert.equal(canVisit(context,"parts"),false);
+  // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
+  // La recherche de pièces est ouverte comme la préparation : chercher n'est pas
+  // acheter. L'assertion qui compte reste la dernière — la navigation ne confère
+  // aucun droit d'achat, lequel est vérifié par mayPlaceOrders() au panier.
+  assert.equal(canVisit(context,"parts"),true);
+  // <<< CLAUDE
   assert.equal(context.permissions.includes("purchase"),false);
 });

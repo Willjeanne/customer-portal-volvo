@@ -1,10 +1,19 @@
-import { cartOperation, prepareCart, transferCart } from "@/server/cart";
+import {
+  cartOperation,
+  prepareCart,
+  transferCart,
+  readPortalCart,
+  checkoutHandoff,
+} from "@/server/cart";
 import { draftLineSchema } from "@/domain/order-draft";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { makePreviewContext, previewUnits } from "@/domain/fixtures";
+// >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+import { vehicleSelection } from "@/domain/fleet";
+// <<< CLAUDE
 import {
   assertLocalRuntime,
   assertMutationOrigin,
@@ -61,11 +70,29 @@ export async function GET(
   try {
     assertLocalRuntime();
     const operation = (await params).operation;
-    if (operation !== "context" && operation !== "draft")
+    if (
+      operation !== "context" &&
+      operation !== "draft" &&
+      operation !== "cart"
+    )
       return respond({ error: "Not found" }, 404);
     const session = await requireSession();
-    if (session.context.mode === "vtex")
-      await validateVtexSession(session.upstreamCookies || "");
+    if (session.context.mode === "vtex") {
+      const verified = await validateVtexSession(session.upstreamCookies || "");
+      if (
+        verified.orgUnit.id !== session.context.unit.id ||
+        verified.claims.userId !== session.context.user.id
+      )
+        throw new PortalError(
+          409,
+          "CONTEXT_CHANGED",
+          "Your buyer context changed. Please sign in again.",
+        );
+    }
+    if (operation === "cart")
+      return respond(
+        await cartOperation(session, () => readPortalCart(session)),
+      );
     if (operation === "draft") return respond({ lines: session.draft || [] });
     return respond({ context: session.context });
   } catch (error) {
@@ -152,7 +179,11 @@ export async function POST(
       return response;
     }
     const session = await requireSession();
-    if (operation === "prepare-cart" || operation === "transfer-cart") {
+    if (
+      operation === "prepare-cart" ||
+      operation === "transfer-cart" ||
+      operation === "checkout-handoff"
+    ) {
       return respond(
         await cartOperation(session, async () => {
           if (session.context.mode === "vtex") {
@@ -168,6 +199,10 @@ export async function POST(
                 "CONTEXT_CHANGED",
                 "Your buyer context changed. Please sign in again.",
               );
+          }
+          if (operation === "checkout-handoff") {
+            z.object({}).strict().parse(body);
+            return checkoutHandoff(session);
           }
           if (operation === "prepare-cart") return prepareCart(session, body);
           const input = z
@@ -189,27 +224,36 @@ export async function POST(
       return respond({ saved: true });
     }
     if (operation !== "context") return respond({ error: "Not found" }, 404);
-    if (session.context.mode !== "preview")
-      throw new PortalError(
-        403,
-        "CONTEXT_NOT_QUALIFIED",
-        "Live context switching is not yet available.",
-      );
+    // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+    // Le véhicule et l'urgence ne sont que des filtres d'affichage : ils ne
+    // confèrent aucun droit et sont donc modifiables aussi en session VTEX.
+    // Le changement d'unité, lui, touche la portée commerciale et reste refusé
+    // hors aperçu tant qu'il n'est pas qualifié.
     const input = z
       .object({
         unitId: z.string(),
-        vehicle: z.enum(["", "Truck 147", "Truck 203"]),
+        vehicle: vehicleSelection,
         urgency: z.enum(["Normal", "Maintenance", "Vehicle off road"]),
       })
       .strict()
       .parse(body);
-    const unit = previewUnits.find((entry) => entry.id === input.unitId);
+    const live = session.context.mode !== "preview";
+    if (live && input.unitId !== session.context.unit.id)
+      throw new PortalError(
+        403,
+        "CONTEXT_NOT_QUALIFIED",
+        "Live unit switching is not yet available.",
+      );
+    const unit = live
+      ? session.context.unit
+      : previewUnits.find((entry) => entry.id === input.unitId);
     if (!unit)
       throw new PortalError(
         403,
         "UNIT_DENIED",
         "This unit is not available to this preview session.",
       );
+    // <<< CLAUDE
     if (input.unitId !== session.context.unit.id) {
       session.draft = undefined;
       session.preparation = undefined;

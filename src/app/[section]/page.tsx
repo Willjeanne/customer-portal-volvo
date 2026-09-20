@@ -1,6 +1,13 @@
 import { Preparation, ReplenishmentLists } from "@/components/replenishment";
 import { Quotes } from "@/components/quotes";
-import { quoteStatuses } from "@/domain/quotes";
+// >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+import { FleetList } from "@/components/fleet-list";
+// <<< CLAUDE
+// >>> CLAUDE — lot find parts, 20/09/2026 — à relire
+import { FindParts } from "@/components/find-parts";
+import { parseSelectedFacets } from "@/domain/parts";
+// <<< CLAUDE
+
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/server/session";
@@ -17,11 +24,24 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ section: string }>;
-  searchParams: Promise<{ page?: string | string[]; order?: string; list?: string; status?: string; label?: string }>;
+  searchParams: Promise<{
+    page?: string | string[];
+    order?: string;
+    list?: string;
+    status?: string;
+    label?: string;
+    // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
+    q?: string;
+    f?: string | string[];
+    // <<< CLAUDE
+  }>;
 }): Promise<React.JSX.Element> {
   const { section } = await params;
   const query = await searchParams;
-  const pageNumber = typeof query.page === "string" && /^[1-9][0-9]{0,2}$/.test(query.page) ? Number(query.page) : 1;
+  const pageNumber =
+    typeof query.page === "string" && /^[1-9][0-9]{0,2}$/.test(query.page)
+      ? Number(query.page)
+      : 1;
   const item = navigation.find((entry) => entry.slug === section);
   if (!item) notFound();
   const session = await getSession();
@@ -62,11 +82,47 @@ export default async function Page({
     <Shell context={context}>
       {section === "home" ? (
         <Home context={context} />
-      ) : (
+      ) : /* >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+             La flotte porte son propre titre « My fleet », comme la maquette. */
+      section === "fleet" ? (
+        <FleetList selected={context.vehicle || undefined} />
+      ) : /* <<< CLAUDE */ (
         <>
           <p className="eyebrow">WANDERGARAGE · CUSTOMER PORTAL</p>
           <h1>{item.label}</h1>
-          {section === "quotes" ? (<Quotes session={session} page={pageNumber} status={typeof query.status === "string" && quoteStatuses.some(status => status === query.status) ? query.status : undefined} label={typeof query.label === "string" ? query.label.slice(0,100) : ""} />) : section === "quick-order" ? (<Preparation session={session} orderId={typeof query.order === "string" ? query.order : undefined} listId={typeof query.list === "string" ? query.list : undefined} />) : section === "lists" ? (<ReplenishmentLists session={session} />) : section === "profile" && context.mode === "vtex" ? (
+          {/* >>> CLAUDE — lot find parts, 20/09/2026 — à relire */}
+          {section === "parts" ? (
+            <FindParts
+              session={session}
+              query={typeof query.q === "string" ? query.q.slice(0, 120) : ""}
+              facets={parseSelectedFacets(query.f)}
+              page={pageNumber}
+            />
+          ) : /* <<< CLAUDE */ section === "quotes" ? (
+            <Quotes
+              session={session}
+              page={pageNumber}
+              status={
+                typeof query.status === "string" &&
+                ["pending", "expired"].includes(query.status)
+                  ? query.status
+                  : undefined
+              }
+              label={
+                typeof query.label === "string" ? query.label.slice(0, 100) : ""
+              }
+            />
+          ) : section === "quick-order" ? (
+            <Preparation
+              session={session}
+              orderId={
+                typeof query.order === "string" ? query.order : undefined
+              }
+              listId={typeof query.list === "string" ? query.list : undefined}
+            />
+          ) : section === "lists" ? (
+            <ReplenishmentLists session={session} />
+          ) : section === "profile" && context.mode === "vtex" ? (
             <BuyerProfile session={session} />
           ) : section === "orders" && context.mode === "vtex" ? (
             <BuyerOrders session={session} page={pageNumber} />
@@ -112,29 +168,6 @@ export default async function Page({
                 Team, addresses, budgets and purchasing controls are scheduled
                 in the account-management tranche.
               </p>
-            </section>
-          ) : section === "fleet" && context.mode === "preview" ? (
-            <section className="detail-panel">
-              <span className="tag">SAMPLE VEHICLES</span>
-              <h2>Your fleet at {context.unit.name}</h2>
-              <p>
-                Use the vehicle selector above to set or clear your working
-                context.
-              </p>
-              <div className="vehicle-row">
-                <Icon name="Truck" size={40} />
-                <div>
-                  <h3>Truck 147 · Volvo VNL 860</h3>
-                  <p>Illustrative vehicle · Fitment not connected</p>
-                </div>
-              </div>
-              <div className="vehicle-row">
-                <Icon name="Truck" size={40} />
-                <div>
-                  <h3>Truck 203 · Volvo VNL 760</h3>
-                  <p>Illustrative vehicle · Fitment not connected</p>
-                </div>
-              </div>
             </section>
           ) : (
             <section className="empty-panel large">

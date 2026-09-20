@@ -29,10 +29,12 @@ test("opaque sessions expire, revoke, and never serialize upstream credentials i
   assert.equal(store.get("forged"), undefined);
 });
 test("procurement cannot purchase and buyer cannot access approvals, including direct routes", () => {
-  assert.equal(
-    canVisit(makePreviewContext("procurement"), "parts"),
-    false,
-  );
+  // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
+  // La découverte de pièces n'est plus conditionnée à `purchase` ; la frontière
+  // qui compte est l'approbation, vérifiée juste en dessous, et l'achat lui-même,
+  // couvert par tests/purchase-permission.test.ts.
+  assert.equal(canVisit(makePreviewContext("procurement"), "parts"), true);
+  // <<< CLAUDE
   assert.equal(canVisit(makePreviewContext("buyer"), "approvals"), false);
   assert.equal(canVisit(makePreviewContext("approver"), "approvals"), true);
   assert.equal(canVisit(makePreviewContext("buyer"), "invented-route"), false);

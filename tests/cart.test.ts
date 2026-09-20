@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cartDifference } from "../src/domain/cart";
-import { prepareCart, transferCart, cartOperation } from "../src/server/cart";
+import {
+  prepareCart,
+  transferCart,
+  cartOperation,
+  readPortalCart,
+} from "../src/server/cart";
 import { makePreviewContext } from "../src/domain/fixtures";
 import type { PortalSession } from "../src/server/session-store";
 const session = (): PortalSession => ({
@@ -41,6 +46,8 @@ test("preparation resolves exact references, merges aliases, retains cookies and
   let cookieSent = false;
   t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
     assert.equal(init.cache, "no-store");
+    if (url.includes("/resources/PlaceOrders/granted"))
+      return Response.json(true);
     if (url.includes("/api/sessions"))
       return Response.json(
         {
@@ -53,7 +60,12 @@ test("preparation resolves exact references, merges aliases, retains cookies and
             },
           },
         },
-        { headers: { "Set-Cookie": "vtex_session=context; Domain=www.emeafaststore.com; Path=/" } },
+        {
+          headers: {
+            "Set-Cookie":
+              "vtex_session=context; Domain=www.emeafaststore.com; Path=/",
+          },
+        },
       );
     cookieSent ||= String(new Headers(init.headers).get("Cookie")).includes(
       "vtex_session=context",
@@ -117,11 +129,24 @@ test("preparation resolves exact references, merges aliases, retains cookies and
   });
   assert.equal(writes, 1);
 });
-test("unverified purchasing rights and overlapping calls cannot write to a cart", async () => {
+test("revoked purchasing rights and overlapping calls cannot write to a cart", async (t) => {
   const s = session();
-  s.context.permissionsVerified = false;
+  s.preparation = {
+    id: "anything",
+    expiresAt: Date.now() + 10000,
+    currency: "USD",
+    lines: [],
+    canTransfer: true,
+    transferBlock: null,
+    channel: "1",
+    unitId: s.context.unit.id,
+  };
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    assert.ok(url.includes("/resources/PlaceOrders/granted"));
+    return Response.json(false);
+  });
   await assert.rejects(transferCart(s, "anything"), {
-    code: "PURCHASE_UNVERIFIED",
+    code: "PURCHASE_DENIED",
   });
   await cartOperation(s, async () => {
     await assert.rejects(
@@ -133,9 +158,43 @@ test("unverified purchasing rights and overlapping calls cannot write to a cart"
 });
 
 test("expired or foreign-unit preparations are rejected before contacting VTEX", async () => {
-  const s=session();
-  s.preparation={id:"check",expiresAt:Date.now()-1,currency:"USD",lines:[],canTransfer:true,transferBlock:null,channel:"1",unitId:s.context.unit.id};
-  await assert.rejects(transferCart(s,"check"),{code:"PREPARATION_EXPIRED"});
-  s.preparation.expiresAt=Date.now()+10000; s.preparation.unitId="other";
-  await assert.rejects(transferCart(s,"check"),{code:"PREPARATION_EXPIRED"});
+  const s = session();
+  s.preparation = {
+    id: "check",
+    expiresAt: Date.now() - 1,
+    currency: "USD",
+    lines: [],
+    canTransfer: true,
+    transferBlock: null,
+    channel: "1",
+    unitId: s.context.unit.id,
+  };
+  await assert.rejects(transferCart(s, "check"), {
+    code: "PREPARATION_EXPIRED",
+  });
+  s.preparation.expiresAt = Date.now() + 10000;
+  s.preparation.unitId = "other";
+  await assert.rejects(transferCart(s, "check"), {
+    code: "PREPARATION_EXPIRED",
+  });
+});
+
+test("cart consultation never creates a cart and hides its identifier", async (t) => {
+  const s = session();
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
+    calls++;
+    assert.equal(init.method, "GET");
+    assert.ok(url.endsWith("/orderForm/cart1"));
+    return Response.json({
+      orderFormId: "cart1",
+      items: [{ id: "10", seller: "2", quantity: 3 }],
+    });
+  });
+  assert.deepEqual(await readPortalCart(s), { items: [] });
+  assert.equal(calls, 0);
+  s.orderFormId = "cart1";
+  assert.deepEqual(await readPortalCart(s), {
+    items: [{ id: "10", seller: "2", quantity: 3 }],
+  });
 });

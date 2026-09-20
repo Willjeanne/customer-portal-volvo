@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { canVisit, navigation, type BuyerContext } from "@/domain/portal";
 import { previewUnits } from "@/domain/fixtures";
+// >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+import { fleet } from "@/domain/fleet";
+// <<< CLAUDE
 import { Icon } from "./icons";
 import { Brand } from "./login";
 
@@ -194,20 +197,23 @@ export function Shell({
               <label htmlFor="vehicle">
                 Vehicle <span>(optional)</span>
               </label>
+              {/* >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+                  Le véhicule est un filtre d'affichage, jamais un droit : il est
+                  donc modifiable aussi en session VTEX, contrairement à l'unité. */}
               <select
                 id="vehicle"
-                disabled={busy || !preview}
+                disabled={busy}
                 value={context.vehicle}
                 onChange={(event) => change({ vehicle: event.target.value })}
               >
                 <option value="">Not selected</option>
-                {preview && (
-                  <>
-                    <option>Truck 147</option>
-                    <option>Truck 203</option>
-                  </>
-                )}
+                {fleet.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.fleetNumber} · {vehicle.modelLabel}
+                  </option>
+                ))}
               </select>
+              {/* <<< CLAUDE */}
             </div>
           </div>
           <div className="context-field urgency-context">
@@ -215,7 +221,9 @@ export function Shell({
               <label htmlFor="urgency">Urgency</label>
               <select
                 id="urgency"
-                disabled={busy || !preview}
+                /* >>> CLAUDE — lot flotte, 20/09/2026 — à relire */
+                disabled={busy}
+                /* <<< CLAUDE */
                 value={context.urgency}
                 onChange={(event) =>
                   change({

@@ -1,4 +1,7 @@
 import type { BuyerContext, Persona } from "./portal";
+// >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+import { defaultVehicleId } from "./fleet";
+// <<< CLAUDE
 export const personas: Record<
   Persona,
   {
@@ -53,7 +56,7 @@ export function makePreviewContext(persona: Persona): BuyerContext {
     contract: "Demo commercial contract · USD",
     permissions: [...chosen.permissions],
     permissionsVerified: false,
-    vehicle: "Truck 147",
+    vehicle: defaultVehicleId, // >>> CLAUDE — lot flotte — identifiant, plus un libellé <<< CLAUDE
     urgency: "Normal",
   };
 }

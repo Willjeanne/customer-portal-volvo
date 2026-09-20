@@ -25,6 +25,10 @@ import {
   Info,
   GearSix,
   ArrowSquareOut,
+  // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+  MapPin,
+  Handshake,
+  // <<< CLAUDE
 } from "@phosphor-icons/react";
 const icons = {
   House,
@@ -52,6 +56,10 @@ const icons = {
   Info,
   GearSix,
   ArrowSquareOut,
+  // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+  MapPin,
+  Handshake,
+  // <<< CLAUDE
 };
 export function Icon({
   name,

@@ -1,5 +1,5 @@
 "use client";
-import type { Preparation, CartResult } from "@/domain/cart";
+import type { Preparation, CartResult, CartItem } from "@/domain/cart";
 import { useState } from "react";
 import {
   draftCsv,
@@ -15,6 +15,7 @@ export function QuickOrder({
   source?: string;
 }) {
   const [lines, updateLines] = useState(initialLines);
+  const [cartItems, setCartItems] = useState<CartItem[] | null>(null);
   const [checked, setChecked] = useState<Preparation | null>(null);
   const [transferred, setTransferred] = useState<CartResult | null>(null);
   function setLines(value: DraftLine[]) {
@@ -102,6 +103,7 @@ export function QuickOrder({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Cart operation failed.");
       if (transfer) {
+        setCartItems(null);
         setTransferred(data);
         setChecked(null);
       } else setChecked(data);
@@ -109,6 +111,46 @@ export function QuickOrder({
       setChecked(null);
       setErrors([
         error instanceof Error ? error.message : "Cart operation failed.",
+      ]);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function openCheckout() {
+    setBusy(true);
+    setErrors([]);
+    try {
+      const response = await fetch("/api/portal/checkout-handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Checkout could not be opened.");
+      window.location.assign(data.url);
+    } catch (error) {
+      setErrors([
+        error instanceof Error
+          ? error.message
+          : "Checkout could not be opened.",
+      ]);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function loadCart() {
+    setBusy(true);
+    setErrors([]);
+    try {
+      const response = await fetch("/api/portal/cart", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Cart could not be loaded.");
+      setCartItems(data.items);
+    } catch (error) {
+      setErrors([
+        error instanceof Error ? error.message : "Cart could not be loaded.",
       ]);
     } finally {
       setBusy(false);
@@ -353,6 +395,46 @@ export function QuickOrder({
           </button>
         </section>
       )}
+      <section className="detail-panel">
+        <h2>Portal cart</h2>
+        <button
+          className="button primary"
+          disabled={busy}
+          onClick={openCheckout}
+        >
+          Continue to checkout
+        </button>
+        <button className="button secondary" disabled={busy} onClick={loadCart}>
+          Refresh portal cart
+        </button>
+        <p>
+          Continue on the store checkout to confirm delivery and payment. You
+          may be asked to sign in there.
+        </p>
+        {cartItems &&
+          (cartItems.length ? (
+            <table className="orders-table">
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Seller</th>
+                  <th>Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cartItems.map((item, index) => (
+                  <tr key={index}>
+                    <td>{item.id}</td>
+                    <td>{item.seller}</td>
+                    <td>{item.quantity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p>No items in the portal cart.</p>
+          ))}
+      </section>
       {transferred && (
         <section className="detail-panel" role="status">
           <h2>

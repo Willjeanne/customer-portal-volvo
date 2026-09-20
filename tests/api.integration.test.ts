@@ -52,7 +52,8 @@ test(
     assert.deepEqual((await readDraft(cookie)).lines,draft);
     const changed = await call(
       "context",
-      { unitId: "preview-chicago", vehicle: "Truck 147", urgency: "Normal" },
+      // >>> CLAUDE — lot flotte : le contexte porte un identifiant, plus un libellé <<< CLAUDE
+      { unitId: "preview-chicago", vehicle: "truck-147", urgency: "Normal" },
       cookie,
     );
     assert.equal(changed.status, 200);

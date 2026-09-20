@@ -14,12 +14,17 @@ export interface BuyerContext {
 export const navigation = [
   { slug: "home", label: "Home", icon: "House" },
   { slug: "fleet", label: "Fleet & Vehicles", icon: "Truck" },
+  // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
+  // Chercher une pièce n'est pas l'acheter : la condition `permission: "purchase"`
+  // a été retirée, sinon l'écran est invisible en session VTEX réelle, où
+  // `permissions` est vide. Même raisonnement que la préparation de commande.
+  // Les actions d'achat restent protégées par `mayPlaceOrders()`.
   {
     slug: "parts",
     label: "Find Parts",
     icon: "MagnifyingGlass",
-    permission: "purchase",
   },
+  // <<< CLAUDE
   {
     slug: "quick-order",
     label: "Quick / Bulk Order",

@@ -1,3 +1,4 @@
+import { mayPlaceOrders } from "./purchase-permission";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { Cookie, CookieJar } from "tough-cookie";
@@ -289,9 +290,14 @@ export async function prepareCart(
               : null;
     }
   }
-  const authorized =
-    session.context.permissionsVerified &&
-    session.context.permissions.includes("purchase");
+  let authorized = false;
+  let permissionIssue: string | null = null;
+  try {
+    authorized = await mayPlaceOrders(session);
+  } catch (error) {
+    if (!(error instanceof PortalError)) throw error;
+    permissionIssue = error.message;
+  }
   const preparation: Preparation = {
     id: randomUUID(),
     expiresAt: Date.now() + 5 * 60_000,
@@ -299,7 +305,8 @@ export async function prepareCart(
     lines: merged,
     canTransfer: authorized && merged.every((line) => !line.issue),
     transferBlock: !authorized
-      ? "Purchasing authorization has not yet been verified for this account."
+      ? permissionIssue ||
+        "VTEX does not grant this account permission to place orders."
       : merged.some((line) => line.issue)
         ? "Resolve the flagged lines before transferring."
         : null,
@@ -315,15 +322,6 @@ export async function prepareCart(
 export async function transferCart(session: PortalSession, id: string) {
   const saved = session.preparation;
   if (
-    !session.context.permissionsVerified ||
-    !session.context.permissions.includes("purchase")
-  )
-    throw new PortalError(
-      403,
-      "PURCHASE_UNVERIFIED",
-      "Purchasing authorization has not yet been verified for this account.",
-    );
-  if (
     !saved ||
     saved.id !== id ||
     saved.expiresAt < Date.now() ||
@@ -334,6 +332,12 @@ export async function transferCart(session: PortalSession, id: string) {
       409,
       "PREPARATION_EXPIRED",
       "Check your parts list again before transferring.",
+    );
+  if (!(await mayPlaceOrders(session)))
+    throw new PortalError(
+      403,
+      "PURCHASE_DENIED",
+      "VTEX does not grant this account permission to place orders.",
     );
   // Consume before the first write. An uncertain network result must not cause a duplicate retry.
   session.preparation = undefined;
@@ -369,4 +373,47 @@ export async function transferCart(session: PortalSession, id: string) {
       "The cart response could not be confirmed. Do not repeat the transfer before reviewing your cart.",
     );
   return cartDifference(items, before.items, after.items);
+}
+
+export async function readPortalCart(session: PortalSession) {
+  if (session.context.mode !== "vtex")
+    throw new PortalError(
+      401,
+      "LIVE_REQUIRED",
+      "Sign in with VTEX to view the cart.",
+    );
+  if (!session.orderFormId) return { items: [] };
+  const form = await request(
+    session,
+    `/api/checkout/pub/orderForm/${session.orderFormId}`,
+    formSchema,
+  );
+  if (form.orderFormId !== session.orderFormId)
+    throw new PortalError(
+      502,
+      "CART_CHANGED",
+      "The cart response could not be confirmed.",
+    );
+  return { items: form.items };
+}
+
+export async function checkoutHandoff(session: PortalSession) {
+  if (!(await mayPlaceOrders(session)))
+    throw new PortalError(
+      403,
+      "PURCHASE_DENIED",
+      "VTEX does not grant this account permission to place orders.",
+    );
+  const cart = await readPortalCart(session);
+  if (!session.orderFormId || !cart.items.some((item) => item.quantity > 0))
+    throw new PortalError(
+      409,
+      "CART_EMPTY",
+      "Add items to your portal cart first.",
+    );
+  // Same local-development handoff as FastStore redirectToCheckout; no auth or
+  // ownership cookie is copied into a URL. The hosted checkout handles sign-in.
+  const url = new URL("https://www.emeafaststore.com/checkout");
+  url.searchParams.set("orderFormId", session.orderFormId);
+  return { url: url.toString() };
 }

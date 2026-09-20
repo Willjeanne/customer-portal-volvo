@@ -12,7 +12,17 @@ export async function ReplenishmentLists({ session }: { session: PortalSession }
   return <section className="detail-panel"><h2>Your saved lists</h2>{!result.data.length ? <p>No replenishment lists found.</p> : result.data.map(list => <article key={list.id}><h3>{list.name}</h3><p>{list.description}</p><p>{list.itemCount ?? "—"} parts · {list.status}</p><Link className="button secondary" href={`/quick-order?list=${encodeURIComponent(list.id)}`}>Prepare from this list</Link></article>)}<p className="form-note">Lists are read from VTEX. Preparing a draft does not modify a saved list.</p></section>;
 }
 export async function Preparation({session, orderId, listId}:{session:PortalSession;orderId?:string;listId?:string}) {
-  if (!orderId && !listId) return <QuickOrder />;
+  // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+  // Un brouillon déjà enregistré en session est rechargé d'office, sinon l'ajout
+  // depuis une fiche véhicule mène à une page qui paraît vide. Le bouton
+  // « Restore saved draft » reste disponible et inchangé.
+  if (!orderId && !listId)
+    return session.draft?.length ? (
+      <QuickOrder initialLines={session.draft} source="From your saved preparation" />
+    ) : (
+      <QuickOrder />
+    );
+  // <<< CLAUDE
   const result = await (async () => {
     const lines = orderId ? (await getBuyerOrder(session,orderId)).items.map(item => ({sku:item.id,quantity:item.quantity})) : (await getBuyerListItems(session,listId!)).map(item => ({sku:item.skuId,quantity:item.preferredQuantity}));
     const parsed = parseOrderCsv(draftCsv(lines));

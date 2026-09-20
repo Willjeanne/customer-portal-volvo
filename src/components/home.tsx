@@ -1,5 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { BuyerContext } from "@/domain/portal";
+// >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+import { formatMileage, vehicleById, vehiclePhoto } from "@/domain/fleet";
+// <<< CLAUDE
 import { Icon } from "./icons";
 
 const tasks = [
@@ -36,6 +40,10 @@ export function Home({
   context: BuyerContext;
 }): React.JSX.Element {
   const preview = context.mode === "preview";
+  // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+  // Le contexte porte l'identifiant du véhicule, plus un libellé libre.
+  const vehicle = vehicleById(context.vehicle);
+  // <<< CLAUDE
   return (
     <>
       <div className="page-heading">
@@ -58,26 +66,38 @@ export function Home({
           <span>Keep your fleet moving.</span>
         </div>
       </div>
-      {preview && context.vehicle ? (
+      {/* >>> CLAUDE — lot flotte, 20/09/2026 — à relire
+          Modèle, photo et alerte viennent de la fixture du véhicule choisi.
+          Auparavant « Volvo VNL 860 » était codé en dur quel que soit le camion. */}
+      {vehicle ? (
         <section className="vehicle-alert" aria-labelledby="alert-title">
           <div className="vehicle-art">
             <span className="alert-kicker">
-              <Icon name="Warning" size={24} />
-              VEHICLE ALERT
+              <Icon name={vehicle.alert ? "Warning" : "Truck"} size={24} />
+              {vehicle.alert ? "VEHICLE ALERT" : "SELECTED VEHICLE"}
             </span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/assets/volvo-truck.png"
-              alt="Silver Volvo truck, illustrative vehicle"
+            <Image
+              src={vehiclePhoto(vehicle)}
+              alt={`${vehicle.modelLabel}, illustrative vehicle`}
+              width={720}
+              height={512}
+              sizes="(max-width: 900px) 70vw, 340px"
+              priority
             />
           </div>
           <div className="alert-copy">
             <span className="tag">ILLUSTRATIVE SCENARIO</span>
-            <h2 id="alert-title">Brake wear detected</h2>
-            <p>Review the vehicle need with your dealer.</p>
+            <h2 id="alert-title">
+              {vehicle.alert ? vehicle.alert.title : vehicle.fleetNumber}
+            </h2>
+            <p>
+              {vehicle.alert
+                ? vehicle.alert.detail
+                : "Find the parts that fit this vehicle."}
+            </p>
             <small>
-              {context.vehicle} <span> | </span> Volvo VNL 860 <span> | </span>{" "}
-              Sample vehicle
+              {vehicle.fleetNumber} <span> | </span> {vehicle.modelLabel}{" "}
+              <span> | </span> {formatMileage(vehicle.mileageKm)}
             </small>
           </div>
           <div className="alert-actions">
@@ -85,16 +105,19 @@ export function Home({
               This sample alert does not provide a driving or safety
               recommendation.
             </p>
-            <Link className="button primary" href="/services">
-              Build a solution
+            <Link
+              className="button primary"
+              href={`/fleet/${vehicle.id}#parts`}
+            >
+              Find compatible parts
               <Icon name="ArrowRight" size={18} />
             </Link>
-            <Link className="button secondary" href="/fleet">
+            <Link className="button secondary" href={`/fleet/${vehicle.id}`}>
               View vehicle
             </Link>
           </div>
         </section>
-      ) : (
+      ) : /* <<< CLAUDE */ (
         <section className="context-notice">
           <Icon name="ShieldCheck" size={32} />
           <div>
