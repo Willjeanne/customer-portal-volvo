@@ -45,11 +45,53 @@ test(
       cookie,
     );
     assert.equal(scope.status, 403);
-    const draft = [{sku:"123",quantity:2}];
-    assert.equal((await call("draft",{lines:draft},cookie)).status,200);
-    assert.equal((await call("draft",{lines:[{sku:"123",quantity:-1}]},cookie)).status,400);
-    const readDraft = async (token: string) => (await fetch(`${origin}/api/portal/draft`,{headers:{Cookie:token}})).json();
-    assert.deepEqual((await readDraft(cookie)).lines,draft);
+    const draft = [{ sku: "123", quantity: 2 }];
+    assert.equal(
+      (await call("draft", { lines: draft, revision: 0 }, cookie)).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(
+          "draft",
+          { lines: [{ sku: "123", quantity: -1 }], revision: 1 },
+          cookie,
+        )
+      ).status,
+      400,
+    );
+    const readDraft = async (token: string) =>
+      (
+        await fetch(`${origin}/api/portal/draft`, {
+          headers: { Cookie: token },
+        })
+      ).json();
+    assert.deepEqual((await readDraft(cookie)).lines, draft);
+    const additions = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        call("draft-add", { line: { sku: "456", quantity: 1 } }, cookie),
+      ),
+    );
+    assert.ok(additions.every((response) => response.status === 200));
+    assert.deepEqual((await readDraft(cookie)).lines, [
+      ...draft,
+      { sku: "456", quantity: 8 },
+    ]);
+    assert.equal(
+      (await call("draft", { lines: [], revision: 1 }, cookie)).status,
+      409,
+    );
+    assert.equal(
+      (
+        await call(
+          "draft-add",
+          { line: { sku: "456", quantity: 9999 } },
+          cookie,
+        )
+      ).status,
+      400,
+    );
+
     const changed = await call(
       "context",
       // >>> CLAUDE — lot flotte : le contexte porte un identifiant, plus un libellé <<< CLAUDE
@@ -60,8 +102,12 @@ test(
     const result = await changed.json();
     assert.equal(result.context.unit.name, "Chicago Depot");
     assert.equal(result.context.vehicle, "");
-    assert.deepEqual((await readDraft(cookie)).lines,[]);
-    await call("draft",{lines:draft},cookie);
+    assert.deepEqual((await readDraft(cookie)).lines, []);
+    await call(
+      "draft",
+      { lines: draft, revision: (await readDraft(cookie)).revision },
+      cookie,
+    );
     assert.equal(
       (
         await call(
@@ -79,7 +125,7 @@ test(
     );
     const other = await call("preview", { persona: "procurement" });
     const otherCookie = (other.headers.get("set-cookie") || "").split(";")[0];
-    assert.deepEqual((await readDraft(otherCookie)).lines,[]);
+    assert.deepEqual((await readDraft(otherCookie)).lines, []);
     const otherContext = await (
       await fetch(`${origin}/api/portal/context`, {
         headers: { Cookie: otherCookie },

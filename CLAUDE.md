@@ -4,6 +4,8 @@
 
 Mise à jour : **20 septembre 2026**. Développement local autorisé. Périmètre complet conservé ; le premier lot préparation/panier est **partiellement connecté**, pas terminé.
 
+Pilotage actif : [docs/COORDINATION.md](docs/COORDINATION.md) — responsables, fichiers réservés, contrats et recette.
+
 ## Objectif et méthode
 
 Interface Volvo indépendante couvrant My Account et les parcours flotte/pièces, réutilisant VTEX avant toute extension. Compte `volvoemea`, organisation WanderGarage, USA/USD. Le projet FastStore existant est une référence en lecture seule ; son checkout partagé et son parcours guest sont hors périmètre.
@@ -67,8 +69,20 @@ Entrée : `START.md`. Périmètre : `docs/CADRAGE_PORTAIL_VOLVO.md`, `docs/MATRI
 
 ## Revue des travaux parallèles — 20 septembre
 
-Deux lots Claude intégrés au plan avec réserves : voir `docs/REVUE-FLOTTE-PARTS.md`. Cinq changements de contrat acceptés (vehicle=id, filtres live sans changement d’unité, parts sans purchase, restauration brouillon, facettes nulles). Corrections requises : atomicité des ajouts et écrêtage quantité, facettes VIN, pagination, qualification des offres publiques et recherche exacte. Aucun retrait de périmètre issu du handoff.
+Deux lots Claude intégrés au plan avec réserves : voir `docs/REVUE-FLOTTE-PARTS.md`. Cinq changements de contrat acceptés (vehicle=id, filtres live sans changement d’unité, parts sans purchase, restauration brouillon, facettes nulles). Brouillon corrigé par Codex : ajout atomique, dépassement refusé, sauvegarde versionnée (409 si périmée). Tests réussis ; recette William attendue. Claude a terminé facettes VIN, pagination, offres publiques et recherche exacte ; lot 3 relu et intégré, recette connectée William attendue. Aucun retrait de périmètre issu du handoff.
 
 Répartition proposée dans `docs/LOT-CLAUDE-SUIVANT.md` : Claude fiabilise recherche/flotte ; Codex garde API partagée, brouillon atomique, panier, droits et devis. Mission écrite, pas envoyée à un autre agent. William réalise la recette connectée.
 
 Derniers ajouts Codex avant cette revue : Continue to checkout (handoff local FastStore par orderFormId), lecture Master Data quotes filtrée par organisation. Codés et testés sur réponses simulées, pas validés en réel ; création/actions de devis non branchées. Source devis identifiée, accès shopper direct à qualifier.
+
+## Dernier lot Codex — brouillon atomique
+
+POST draft-add remplace la lecture/remplacement côté PartsPicker. Les quantités annoncées viennent de la réponse serveur. Save draft porte désormais une révision ; Restore la recharge, et Quick Order reçoit la révision initiale du serveur. Les pages périmées ne peuvent plus écraser les ajouts d’autres onglets. Limites refusées sans écrêtage, préparation invalidée après sauvegarde et modification du brouillon refusée pendant une opération panier. Contrat détaillé dans COORDINATION.md.
+
+Contrôles : TypeScript/lint réussis, 43 tests unitaires + scénario HTTP exécuté séparément réussi. Aucun test navigateur refait. Le handoff lot 3 de Claude est reçu ; les modifications du fichier partagé parts-picker ont été relues et coexistent. Le fonctionnement du checkout et l’accès réel aux devis restent à faire confirmer par William avant le lot suivant.
+
+## Décision courante — cible de checkout modifiée
+
+William autorise le checkout intégré au Customer Portal et la création de devis depuis le panier. Le checkout externe demande une reconnexion et reste un mécanisme transitoire, pas la cible. Prochaine réalisation Codex : panier/adresse/livraison VTEX dans le portail, puis moyens de paiement/confirmation ; devis persistants dans quotes avec identité/prix/organisation serveur et relecture. Aucun achat automatique de recette.
+
+Lot 3 Claude reçu et relu : VIN conserve les facettes secondaires, pagination bornée avec lien vers dernière page réelle, référence exacte comparée, offre publique correctement identifiée et facettes supplémentaires accessibles. Maintenir 12 articles/page pour ce lot ; profondeur limitée explicitement. Premier SKU, seller non transmis et fitment illustratif restent ouverts. Aucun nouveau lot attribué à Claude avant découpage explicite.

@@ -175,12 +175,24 @@ L’arrivée depuis le site public transmet seulement un contexte utile et autor
 
 ## 6. Plan de réalisation par fonctions utilisables
 
+**Priorité actualisée le 20 septembre, autorisée par William : checkout dans le portail puis création de devis depuis le panier.** Remplace l’ancienne cible de redirection vers le checkout du site. Préserver les wireframes et la session acheteur serveur.
+
+| Sous-lot Codex | Livraison et critère de sortie |
+|---|---|
+| Checkout A — panier et livraison | Écran portail : panier relu, adresse acheteur autorisée, options/délais/frais retournés par VTEX, recalcul et gestion des refus. Aucun prix/délai inventé. |
+| Checkout B — paiement et confirmation | Moyens réellement disponibles du compte, récapitulatif, autorisations et politiques VTEX, soumission explicite puis confirmation/commande. Qualifier d’abord les moyens B2B du compte ; aucune donnée carte brute dans le BFF. Recette William sans transaction réelle automatique. |
+| Devis A — créer et relire | Nom/note et lignes du panier avec prix, identité et organisation établis côté serveur. Écriture dans le référentiel quotes existant avec autorisation qualifiée ; retour d’un identifiant et relecture du même devis. Aucun fallback silencieux en stockage local. |
+| Devis B — détail et actions | Détail, transitions autorisées et conversion selon les capacités du service, après validation de la création/relecture. |
+
+Les refus d’accès au référentiel devis ou l’indisponibilité d’un moyen de paiement doivent être documentés comme dépendances précises ; ne pas les contourner avec une clé applicative non qualifiée ou une simulation présentée comme réelle.
+
+
 **Réalisation locale autorisée et commencée.** Les tranches ci-dessous conservent le périmètre complet. L’ordre opérationnel et la méthode ci-après, actualisés le 20 septembre 2026 avec William, remplacent les anciennes indications de phase documentaire.
 
 | Tranche | Livraison | Critère de sortie | Dépendances limitées à cette tranche |
 |---|---|---|---|
 | 1 — Premier accès et espace Volvo | Vérification ciblée session/unité/droits, puis shell responsive, login/logout, contexte, profil et accueil | Données réelles autorisées sous identité acheteur ; états vide/erreur/refus | Session accessible et mécanisme d’authentification qualifié ; pas d’inventaire global préalable |
-| 2 — Commandes et réapprovisionnement | Historique/détail/suivi/documents, reorder, quick order, collage/CSV, listes, panier et handoff partagé | Parcours utilisable de commande précédente ou liste vers nouvel achat ; quantités et références conservées | Checkout partagé pour conclure l’achat seulement ; les lectures avancent indépendamment |
+| 2 — Commandes et réapprovisionnement | Historique/détail/suivi/documents, reorder, quick order, collage/CSV, listes, panier et checkout intégré | Parcours utilisable de commande précédente ou liste vers nouvel achat ; quantités et références conservées | Services Checkout VTEX pour la finalisation dans le portail ; les lectures avancent indépendamment |
 | 3 — Gestion du compte | Organisation/unités/équipe/droits, adresses/destinataires, contrats/assortiments, paiements, budgets/règles/approbations et comptabilité | Opérations My Account utiles persistantes et conformes aux droits, testées par rôle | API et autorisations qualifiées au fil de chaque fonction ; changements partagés coordonnés |
 | 4 — Devis | Liste/détail, création et actions métier, conversion en achat | Devis persistant, états/prix autorisés côté serveur ; service existant ou extension custom qualifiée | Identifier le service ou définir l’extension ; aucun remplacement silencieux par storyboard |
 | 5 — Parcours Volvo et assistance | Flotte/véhicule → pièce → achat ou handover ; VIN/WO ; composants communs acheteur/concessionnaire ; import XLSX | Jeu explicite véhicule → SKU réel → offre → résultat attendu ; mode de chaque donnée visible ; véhicule facultatif | Sources réelles ou fixtures bornées ; délégation réelle vérifiée seulement pour l’accès aux clients réels |
@@ -189,6 +201,8 @@ L’arrivée depuis le site public transmet seulement un contexte utile et autor
 La séquence indique des priorités, pas des barrières entre tous les domaines. Les fonctions indépendantes continuent en cas de blocage local. CSV précède XLSX par réutilisation ; **XLSX reste dans la cible**, sans nouvel arbitrage de périmètre. Les cinq écrans dessinés sont des références visuelles et non une définition réduite de la livraison.
 
 Le chantier global storefront/offres fournit les offres et sellers utilisables ; le portail les consomme et montre le suivi correspondant. Vérifier les sellers déjà rapportés avant toute création. Plusieurs expéditions ne prouvent pas plusieurs vendeurs. Cette dépendance ne transfère ni l’administration marketplace ni le diagnostic checkout au portail.
+
+Le suivi opérationnel à jour et la réservation des fichiers sont dans [COORDINATION.md](COORDINATION.md). Ajout atomique/version du brouillon codés et testés par Codex ; lot 3 recherche/flotte terminé et relu, recette William attendue. Priorités désormais checkout intégré et création/relecture devis.
 
 ### Intégration des lots flotte / Find Parts — 20 septembre
 
@@ -282,3 +296,7 @@ Références officielles consultées le 18 septembre 2026 :
 - [Guide interne Pupulin v1.10](https://docs.google.com/document/d/11YFQFrgSkGGDWb0cwA4XlFAifFYE6yc_q9w8Y3aCxVw/edit) : lu via Drive, usage interne ; aucune instruction de configuration exécutée.
 
 Limites : pas d’audit de sécurité complet de l’ancien site, pas d’inventaire live des flags/apps, pas de vérification des licences du starter upstream ni de test de compatibilité headless indépendant. Ces points sont explicitement prévus avant réutilisation ou engagement d’intégration.
+
+### Clôture de revue du lot 3 Claude
+
+Corrections 3–6 relues dans les fonctions withVehicleModel, clampPartsPage/reachablePages, exactReferenceMatch et les deux écrans. Textes catalogue du PartsPicker et ajout atomique Codex coexistent. Lot intégré au plan comme **codé/testé, recette navigateur connectée en attente**. Les mesures de limite moteur et de comptes de résultats restent les preuves rapportées par Claude, non re-sondées par Codex. Premier SKU, vendeur non transmis et fitment illustratif restent au backlog ; aucune réduction de périmètre.

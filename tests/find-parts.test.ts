@@ -5,10 +5,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MAX_PARTS_PAGE,
+  clampPartsPage,
+  exactReferenceMatch,
+  isTruncated,
   parseSelectedFacets,
+  partsPageSchema,
+  reachablePages,
   readFacetGroups,
   selectedFacetPath,
   facetsSchema,
+  withVehicleModel,
 } from "../src/domain/parts";
 import { isPresentableModel, modelFamily } from "../src/domain/volvo-models";
 import { vehicleByIdentifier } from "../src/domain/fleet";
@@ -155,3 +162,97 @@ test("free search stays anonymous and asks for both products and facets", async 
     }),
   );
 });
+
+// >>> CLAUDE — lot fiabilisation, 20/09/2026 — à relire
+// Non-régressions des points 3 à 6 de docs/REVUE-FLOTTE-PARTS.md.
+
+test("point 3 — un véhicule impose son modèle sans effacer les autres facettes", () => {
+  const url = [
+    { key: "category-2", value: "brakes" },
+    { key: "part-type", value: "genuine" },
+  ];
+  const merged = withVehicleModel("fh13-classic", url);
+  assert.deepEqual(merged, [
+    { key: "application", value: "fh13-classic" },
+    { key: "category-2", value: "brakes" },
+    { key: "part-type", value: "genuine" },
+  ]);
+  // Le chemin de requête porte bien Application ET le système.
+  const path = selectedFacetPath(merged);
+  assert.ok(path.includes("/application/fh13-classic"));
+  assert.ok(path.includes("/category-2/brakes"));
+  // Un modèle venu de l'URL ne peut pas contredire le véhicule reconnu.
+  assert.deepEqual(
+    withVehicleModel("vm", [{ key: "application", value: "fh-new" }]),
+    [{ key: "application", value: "vm" }],
+  );
+});
+
+test("point 4 — la pagination ne dépasse jamais la limite du moteur", () => {
+  // Mesuré le 20/09 : Intelligent Search s'arrête à la page 50, quel que soit count.
+  assert.equal(MAX_PARTS_PAGE, 50);
+  assert.equal(partsPageSchema.safeParse(50).success, true);
+  assert.equal(partsPageSchema.safeParse(51).success, false);
+  // 1 764 produits à 12 par page feraient 147 pages : on n'en annonce que 50.
+  assert.equal(Math.ceil(1764 / 12), 147);
+  assert.equal(reachablePages(1764, 12), 50);
+  assert.equal(isTruncated(1764, 12), true);
+  // Un résultat court n'est pas tronqué et garde son vrai nombre de pages.
+  assert.equal(reachablePages(25, 12), 3);
+  assert.equal(isTruncated(25, 12), false);
+  assert.equal(reachablePages(0, 12), 1);
+  // Une page saisie à la main est ramenée dans la plage servie, sans erreur.
+  assert.equal(clampPartsPage(999), 50);
+  assert.equal(clampPartsPage(0), 1);
+  assert.equal(clampPartsPage(-3), 1);
+  assert.equal(clampPartsPage(40, 25, 12), 3);
+});
+
+test("point 6 — la référence exacte est reconnue par comparaison, pas par position", () => {
+  const part = (reference: string) => ({
+    productId: reference,
+    reference,
+    name: `Part ${reference}`,
+    imageUrl: null,
+    price: 1,
+    listPrice: 1,
+    available: 1,
+  });
+  // Cas réel mesuré : « 1521910 » rend aussi « 1521910k ».
+  const results = [part("1521910k"), part("1521910"), part("1521910k-DD")];
+  const found = exactReferenceMatch(results, "1521910");
+  assert.equal(found?.reference, "1521910");
+  // La position ne joue aucun rôle : l'exacte est ici en deuxième.
+  assert.notEqual(results[0].reference, "1521910");
+  assert.equal(exactReferenceMatch(results, " 1521910 ")?.reference, "1521910");
+  assert.equal(exactReferenceMatch(results, "1521910K")?.reference, "1521910k");
+  // Aucune référence rendue ne correspond : rien n'est étiqueté.
+  assert.equal(exactReferenceMatch(results, "clutch"), undefined);
+  assert.equal(exactReferenceMatch(results, ""), undefined);
+  assert.equal(exactReferenceMatch([], "1521910"), undefined);
+});
+
+test("point 5 — les écrans catalogue ne lisent plus la devise acheteur", async () => {
+  const { readFile } = await import("node:fs/promises");
+  for (const file of [
+    "src/components/find-parts.tsx",
+    "src/app/fleet/[vehicleId]/page.tsx",
+  ]) {
+    const raw = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
+    // Le texte JSX est reformaté par Prettier : on compare sur une seule ligne.
+    const source = raw.replace(/\s+/g, " ");
+    // L'offre affichée est publique : l'étiqueter avec la devise de session
+    // supposerait une correspondance de politique commerciale non démontrée.
+    assert.ok(
+      !source.includes("getBuyerProfile"),
+      `${file} ne doit plus lire la devise acheteur`,
+    );
+    assert.ok(
+      source.includes(
+        "confirmed by the price and availability check in Quick Order",
+      ) || source.includes("confirm in Quick Order"),
+      `${file} doit renvoyer la confirmation vers Quick Order`,
+    );
+  }
+});
+// <<< CLAUDE

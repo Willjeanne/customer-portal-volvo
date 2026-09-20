@@ -8,7 +8,7 @@
  * stock, transfert vers l'orderForm. Aucun nouvel endpoint d'achat n'est créé.
  */
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { draftLineSchema } from "@/domain/order-draft";
@@ -24,10 +24,13 @@ export function PartsPicker({
 }) {
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState("");
+  const adding = useRef(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   async function addToDraft(part: Part) {
+    if (adding.current) return;
+    adding.current = true;
     setBusy(part.reference);
     setError("");
     setMessage("");
@@ -36,33 +39,16 @@ export function PartsPicker({
         sku: part.reference,
         quantity: Number(quantities[part.reference] || "1"),
       });
-      // Le brouillon est remplacé en entier par l'API : on relit avant d'écrire.
-      const current = await fetch("/api/portal/draft", { cache: "no-store" });
-      const existing = await current.json();
-      if (!current.ok) throw new Error(existing.error || "Draft unavailable.");
-      const lines = draftLineSchema
-        .array()
-        .max(200)
-        .parse(existing.lines ?? []);
-      const merged = [...lines];
-      const found = merged.findIndex((entry) => entry.sku === line.sku);
-      if (found >= 0)
-        merged[found] = {
-          sku: line.sku,
-          quantity: Math.min(9999, merged[found].quantity + line.quantity),
-        };
-      else merged.push(line);
-
-      const saved = await fetch("/api/portal/draft", {
+      const saved = await fetch("/api/portal/draft-add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lines: merged }),
+        body: JSON.stringify({ line }),
       });
       const result = await saved.json();
       if (!saved.ok)
         throw new Error(result.error || "The draft was not saved.");
       setMessage(
-        `${line.quantity} × ${part.reference} added to your order preparation.`,
+        `${result.added} × ${part.reference} added to your order preparation (${result.total} in total).`,
       );
     } catch (cause) {
       setError(
@@ -71,6 +57,7 @@ export function PartsPicker({
           : "This part could not be added.",
       );
     } finally {
+      adding.current = false;
       setBusy("");
     }
   }
@@ -105,10 +92,19 @@ export function PartsPicker({
             </div>
             <h3>{part.name}</h3>
             <p className="part-reference">Ref. {part.reference}</p>
-            <p className="part-price">{partMoney(part.price, currency)}</p>
-            <p className="part-stock">
-              {part.available > 0 ? "In stock" : "Not available"}
+            {/* >>> CLAUDE — lot fiabilisation, 20/09/2026 — textes d'offre uniquement,
+                logique d'ajout inchangée. L'offre lue est publique : ni la devise
+                acheteur ni une disponibilité contractuelle ne sont affirmées. */}
+            <p className="part-price">
+              {partMoney(part.price, currency)}
+              <small>Catalogue price</small>
             </p>
+            <p className="part-stock">
+              {part.available > 0
+                ? "Listed as available · confirm in Quick Order"
+                : "Not listed as available"}
+            </p>
+            {/* <<< CLAUDE */}
             <div className="part-actions">
               <label>
                 <span className="visually-hidden">
@@ -130,7 +126,7 @@ export function PartsPicker({
               </label>
               <button
                 className="button primary"
-                disabled={busy === part.reference || part.available === 0}
+                disabled={!!busy || part.available === 0}
                 onClick={() => addToDraft(part)}
               >
                 {busy === part.reference ? "Adding…" : "Add"}

@@ -11,7 +11,7 @@
 | D03 | Confirmé | Fonctions My Account prévues conservées | Pas de réduction à la lecture ; tout retrait proposé sera nommé et décidé par William |
 | D04 | Confirmé | Date d’atelier et matrice des questions ne sont pas des prérequis | Le rattachement aux use cases reste dans les parcours existants, sans livrable bloquant supplémentaire |
 | D05 | Confirmé | Mise à jour documentaire uniquement pour cette étape | Aucun code, scaffold, dépendance, déploiement ou modification VTEX |
-| D06 | Confirmé | Checkout partagé, diagnostic hors projet ; guest sur site existant | Vérifier ultérieurement le handoff ; avancer sur les fonctions indépendantes |
+| D06 | Remplacé le 20/09 par décision William | Finalisation dans le Customer Portal, services VTEX conservés ; guest sur site existant inchangé | Construire adresse/livraison/paiement/récapitulatif/confirmation dans le portail ; le handoff externe devient transitoire |
 | D07 | Direction | Next.js/React/TypeScript avec BFF intégré ; Vercel proposé | Vérifier un accès session/unité/permissions ; ne pas porter tous les services d’un coup |
 | D08 | Direction | Plugin Buyer Portal comme référence d’implémentation | Qualifier les routes et adapter les clients ; aucune garantie implicite de support hors FastStore |
 | D09 | Direction | Natif existant en priorité, custom ciblé pour les lacunes | Devis et autres fonctions ne sont pas automatiquement abandonnés ; persistance et règles serveur explicites |
@@ -31,3 +31,11 @@
 - Achat : handoff et retour checkout partagé, quantités/sellers et comptabilité. Dépendance storefront/offres pour le multi-seller.
 
 Ces vérifications ne rouvrent pas le périmètre confirmé. Les montants, identifiants et états historiques restent dans le document de démarrage pour éviter les copies divergentes. Une nouvelle décision sera enregistrée seulement si elle change le périmètre ou la direction de réalisation.
+
+## Décision William — checkout intégré et devis, 20 septembre
+
+William autorise la finalisation de commande dans le Customer Portal et la création de devis depuis le panier. Cela remplace la cible de handoff checkout partagé ; aucune modification du site public/guest n’est nécessaire. Les services VTEX restent responsables des prix, livraison, droits, politiques d’achat et paiement. L’interface ne doit pas demander une nouvelle connexion sur emeafaststore pour son parcours normal ; les éventuelles authentifications propres au paiement restent dépendantes du moyen choisi.
+
+La capture fournie montre une reconnexion au checkout externe et une liste Quotes vide sur le site. Le handoff n’est donc pas validé comme parcours transparent. La capture ne prouve pas que la nouvelle lecture des devis du portail fonctionne. La création d’un devis persistant puis sa relecture permettra de qualifier le parcours. Aucun achat réel n’est autorisé implicitement par la recette.
+
+Arbitrage pagination catalogue : conserver pour ce lot 12 résultats/page avec plafond explicite (600 accessibles par recherche). Utiliser les filtres ; envisager une taille réglable ultérieurement après mesure, sans annoncer que tout le catalogue est parcourable.

@@ -106,3 +106,11 @@ William répond « ça fonctionne » à la recette vérification articles → tr
 ## 20 septembre — revue intégrée des deux lots Claude
 
 Relecture des contrats et chemins flotte/parts ; cinq changements acceptés, réserves et défauts concrets dans REVUE-FLOTTE-PARTS.md. Plan global mis à jour, scope non réduit. Mission proposée à Claude dans LOT-CLAUDE-SUIVANT.md, aucun envoi externe ni agent lancé. Contrôle ciblé : TypeScript réussi, 37 tests passés / 1 HTTP sauté. Aucun changement applicatif effectué dans cette revue, aucun parcours navigateur répété. Le dernier code checkout/devis Codex antérieur à la revue reste en attente de recette réelle.
+
+## 20 septembre — atomicité du brouillon et coordination
+
+Ajout serveur synchrone draft-add, sauvegarde complète avec révision, refus de dépassement sans mutation, invalidation de préparation, verrou UI du picker et protection pendant opération panier. Textes catalogue en cours de modification par Claude conservés ; aucun formatage global du fichier partagé. TypeScript/lint réussis, 43 tests unitaires et scénario HTTP séparé réussis ; le scénario couvre 8 ajouts concurrents et conflit de révision. Tableau de coordination/contrats/recette dans COORDINATION.md. Checkout/devis attendent le retour manuel William ; pas de nouvel essai navigateur ni modification VTEX.
+
+## 20 septembre — clôture revue Claude et décision checkout intégré
+
+Lot 3 relu dans le code et handoff ; corrections acceptées, recette navigateur encore à faire. PartsPicker conserve l’ajout atomique Codex avec les textes publics Claude. Les 43 tests unitaires + HTTP séparé du dernier contrôle couvraient l’état combiné ; pas de répétition durant cette revue documentaire. William valide la cible checkout intégré et création de devis depuis le panier. Plan/décisions/coordination mis à jour ; redirection externe désormais transitoire. Catalogue maintenu à 12/page, limites explicites. Aucun développement paiement ou écriture devis effectué dans cette mise à jour.

@@ -5,7 +5,7 @@ import {
   readPortalCart,
   checkoutHandoff,
 } from "@/server/cart";
-import { draftLineSchema } from "@/domain/order-draft";
+import { addDraftLine, replaceDraft } from "@/server/draft";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
@@ -93,7 +93,11 @@ export async function GET(
       return respond(
         await cartOperation(session, () => readPortalCart(session)),
       );
-    if (operation === "draft") return respond({ lines: session.draft || [] });
+    if (operation === "draft")
+      return respond({
+        lines: session.draft || [],
+        revision: session.draftRevision ?? 0,
+      });
     return respond({ context: session.context });
   } catch (error) {
     return failure(error);
@@ -213,15 +217,26 @@ export async function POST(
         }),
       );
     }
-    if (operation === "draft") {
-      if (session.context.mode === "vtex")
-        await validateVtexSession(session.upstreamCookies || "");
-      const input = z
-        .object({ lines: z.array(draftLineSchema).max(200) })
-        .strict()
-        .parse(body);
-      session.draft = input.lines;
-      return respond({ saved: true });
+    if (operation === "draft" || operation === "draft-add") {
+      if (session.context.mode === "vtex") {
+        const verified = await validateVtexSession(
+          session.upstreamCookies || "",
+        );
+        if (
+          verified.orgUnit.id !== session.context.unit.id ||
+          verified.claims.userId !== session.context.user.id
+        )
+          throw new PortalError(
+            409,
+            "CONTEXT_CHANGED",
+            "Your buyer context changed. Please sign in again.",
+          );
+      }
+      return respond(
+        operation === "draft-add"
+          ? addDraftLine(session, body)
+          : replaceDraft(session, body),
+      );
     }
     if (operation !== "context") return respond({ error: "Not found" }, 404);
     // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
@@ -256,6 +271,7 @@ export async function POST(
     // <<< CLAUDE
     if (input.unitId !== session.context.unit.id) {
       session.draft = undefined;
+      session.draftRevision = (session.draftRevision ?? 0) + 1;
       session.preparation = undefined;
       session.orderFormId = undefined;
       session.checkoutCookies = undefined;

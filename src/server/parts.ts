@@ -16,6 +16,8 @@ import {
   facetsSchema,
   partSearchSchema,
   partsPageSchema,
+  isTruncated,
+  reachablePages,
   readFacetGroups,
   readParts,
   readSystems,
@@ -90,7 +92,14 @@ export async function searchVehicleParts(
   application: TruckApplication,
   system: string | undefined,
   page: number,
-): Promise<{ parts: Part[]; total: number; pageSize: number; page: number }> {
+): Promise<{
+  parts: Part[];
+  total: number;
+  pageSize: number;
+  page: number;
+  pages: number;
+  truncated: boolean;
+}> {
   const model = applicationSchema.parse(application);
   const slug = system ? systemSchema.parse(system) : undefined;
   const safePage = partsPageSchema.parse(page);
@@ -108,12 +117,22 @@ export async function searchVehicleParts(
     total: payload.recordsFiltered,
     pageSize: PARTS_PAGE_SIZE,
     page: safePage,
+    // >>> CLAUDE — lot fiabilisation, 20/09/2026 — à relire
+    pages: reachablePages(payload.recordsFiltered, PARTS_PAGE_SIZE),
+    truncated: isTruncated(payload.recordsFiltered, PARTS_PAGE_SIZE),
+    // <<< CLAUDE
   };
 }
 
 // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
 // Recherche libre de l'écran /parts. Facettes et produits sont lus en parallèle :
 // `product_search` ne rend pas les facettes sur ce compte, il faut les deux appels.
+//
+// Le schéma reste strict volontairement : au-delà de la page 50 le moteur omet
+// `recordsFiltered`, mais l'appelant ne demande jamais cette plage. Une réponse
+// sans `recordsFiltered` **dans** la plage autorisée est donc une anomalie, et
+// doit continuer de remonter en PARTS_FORMAT plutôt que de passer pour une fin
+// de liste.
 
 export interface PartSearchResult {
   parts: Part[];
@@ -123,6 +142,10 @@ export interface PartSearchResult {
   facets: FacetGroup[];
   /** Vrai quand la recherche n'a produit ni texte ni facette : on montre tout. */
   browsing: boolean;
+  /** Dernière page servie par le moteur, bornée par sa limite. */
+  pages: number;
+  /** Vrai quand des résultats existent au-delà de ce que le moteur pagine. */
+  truncated: boolean;
 }
 
 export async function searchParts(
@@ -150,6 +173,8 @@ export async function searchParts(
     pageSize: PARTS_PAGE_SIZE,
     facets: readFacetGroups(groups),
     browsing: query === "" && facets.length === 0,
+    pages: reachablePages(products.recordsFiltered, PARTS_PAGE_SIZE),
+    truncated: isTruncated(products.recordsFiltered, PARTS_PAGE_SIZE),
   };
 }
 // <<< CLAUDE

@@ -11,6 +11,7 @@ export interface PortalSession {
     channel: string;
     unitId: string;
   };
+  draftRevision?: number;
   draft?: import("../domain/order-draft").DraftLine[];
 }
 export class SessionStore {

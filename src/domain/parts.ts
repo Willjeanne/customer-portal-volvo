@@ -39,7 +39,18 @@ const applicationValues = Object.keys(truckApplications) as [
 export const applicationSchema = z.enum(applicationValues);
 /** Les valeurs de `category-2` sont des slugs Intelligent Search, jamais une saisie libre. */
 export const systemSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,59}$/);
-export const partsPageSchema = z.number().int().min(1).max(50);
+/**
+ * Intelligent Search plafonne à **page 50**, quel que soit `count` — mesuré le
+ * 20/09/2026 sur sept combinaisons (count 1, 12, 24, 50 × page 50 et 51).
+ * Au-delà, la réponse rend `products: []` **et omet `recordsFiltered`** : ce
+ * n'est donc pas une fin de liste propre, c'est une réponse hors contrat.
+ *
+ * Conséquence tenue par le code appelant : on ne construit jamais de lien
+ * au-delà de cette borne, et une réponse sans `recordsFiltered` **dans** la
+ * plage autorisée reste une anomalie signalée, pas une fin normale.
+ */
+export const MAX_PARTS_PAGE = 50;
+export const partsPageSchema = z.number().int().min(1).max(MAX_PARTS_PAGE);
 
 export const PARTS_PAGE_SIZE = 12;
 
@@ -284,5 +295,64 @@ export function readFacetGroups(
       ? [{ key, label, values: values.sort((a, b) => b.count - a.count) }]
       : [];
   });
+}
+// <<< CLAUDE
+
+// >>> CLAUDE — lot fiabilisation, 20/09/2026 — à relire
+// Corrections des points 3, 4 et 6 de docs/REVUE-FLOTTE-PARTS.md.
+
+/** Dernière page réellement atteignable, bornée par la limite du moteur. */
+export function reachablePages(total: number, pageSize: number): number {
+  return Math.max(1, Math.min(MAX_PARTS_PAGE, Math.ceil(total / pageSize)));
+}
+
+/** Vrai quand le moteur cache des résultats derrière sa propre limite. */
+export function isTruncated(total: number, pageSize: number): boolean {
+  return Math.ceil(total / pageSize) > MAX_PARTS_PAGE;
+}
+
+/** Page demandée ramenée dans la plage servie, sans faire échouer l'écran. */
+export function clampPartsPage(
+  page: number,
+  total?: number,
+  pageSize = PARTS_PAGE_SIZE,
+): number {
+  const upper =
+    total === undefined ? MAX_PARTS_PAGE : reachablePages(total, pageSize);
+  return Math.min(Math.max(1, Math.floor(page) || 1), upper);
+}
+
+/**
+ * Référence exacte présente dans les résultats.
+ *
+ * `/parts?q=<ref>` fait une recherche **textuelle** : ce n'est pas un contrat de
+ * correspondance exacte. Mesuré le 20/09/2026 : `85021811` rend 6 produits
+ * (`85021811k-MO-GotemburgoCAN`…), `1521910` en rend 2 (`1521910`, `1521910k`).
+ *
+ * On compare donc effectivement les références rendues au terme saisi — jamais
+ * la position dans la liste, qui ne garantit rien.
+ */
+export function exactReferenceMatch(
+  parts: Part[],
+  query: string,
+): Part | undefined {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return undefined;
+  return parts.find((part) => part.reference.trim().toLowerCase() === needle);
+}
+
+/**
+ * Facettes effectives quand un véhicule est reconnu : son modèle s'impose, les
+ * autres facettes de l'URL sont **conservées**. Sans cela, choisir un système
+ * après un VIN ne changeait pas la requête (point 3 de la revue).
+ */
+export function withVehicleModel(
+  application: string,
+  urlFacets: SelectedFacet[],
+): SelectedFacet[] {
+  return [
+    { key: "application", value: application },
+    ...urlFacets.filter((facet) => facet.key !== "application"),
+  ];
 }
 // <<< CLAUDE

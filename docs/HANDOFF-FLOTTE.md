@@ -298,3 +298,113 @@ débordement horizontal.
 
 **Non vérifié :** session VTEX réelle. En connecté, la devise viendra de la session au lieu
 d'être omise.
+
+---
+
+# Lot 3 — fiabilisation flotte / Find Parts
+
+> ⚠️ **Écrit par Claude le 20 septembre 2026**, sur le périmètre confié par Codex
+> (`docs/LOT-CLAUDE-SUIVANT.md`). Corrige les points **3 à 6** de
+> `docs/REVUE-FLOTTE-PARTS.md`. Non relu. Recette navigateur à faire par William.
+
+```bash
+grep -rn "lot fiabilisation" src tests
+```
+
+## Fichiers modifiés
+
+| Fichier                              | Changement                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `src/domain/parts.ts`                | `MAX_PARTS_PAGE`, `reachablePages`, `isTruncated`, `clampPartsPage`, `exactReferenceMatch`, `withVehicleModel`     |
+| `src/server/parts.ts`                | `pages` et `truncated` exposés par les deux recherches ; note de contrat sur le schéma strict                      |
+| `src/components/find-parts.tsx`      | Points 3 à 6, facettes dépliables, page hors plage                                                                 |
+| `src/app/fleet/[vehicleId]/page.tsx` | Pagination bornée, retrait de la devise acheteur, page hors plage                                                  |
+| `src/components/parts-picker.tsx`    | **Textes d'offre et de devise uniquement.** Logique d'ajout, verrou et quantités inchangés ; fichier non reformaté |
+| `src/app/globals.css`                | Uniquement dans le bloc `find parts` existant                                                                      |
+| `tests/find-parts.test.ts`           | 4 tests de non-régression, un par point                                                                            |
+
+Fichiers réservés à Codex **non touchés**, vérifié par horodatage : route API,
+page section, session store, cart, quick-order, purchase-permission,
+custom-quotes, quotes. Aucun changement transversal n'a été nécessaire.
+
+## Ce qui est corrigé, avec la preuve
+
+**Point 3 — facettes ignorées après VIN.** Le véhicule impose sa facette
+`application` et les autres facettes de l'URL sont conservées. Mesuré :
+
+| URL                                        | Avant                   | Après  |
+| ------------------------------------------ | ----------------------- | ------ |
+| `?q=YV2RT40AQFB312947`                     | 323                     | 323    |
+| `?q=YV2RT40AQFB312947&f=category-2:brakes` | **323** (filtre ignoré) | **25** |
+
+Le bandeau du véhicule porte **« Remove vehicle »**, qui retire le VIN et
+conserve le modèle en facette visible et retirable, comme demandé.
+
+**Point 4 — pagination.** Limite **mesurée**, pas supposée : Intelligent Search
+s'arrête à la **page 50, quel que soit `count`** — sept sondages (count 1, 12,
+24, 50 × pages 50 et 51). Au-delà il rend `products: []` **et omet
+`recordsFiltered`**.
+
+| URL                        | Avant             | Après                                                         |
+| -------------------------- | ----------------- | ------------------------------------------------------------- |
+| `/parts`                   | Page 1 of **147** | Page 1 of **50** + mention de la limite                       |
+| `/parts?page=999`          | erreur de schéma  | Page 50 of 50                                                 |
+| `/fleet/truck-147?page=99` | erreur de schéma  | « No results on page 50. The last page is 27. » + lien retour |
+
+Le schéma reste **strict volontairement** : l'appelant ne demande jamais
+au-delà de la borne, donc une réponse sans `recordsFiltered` **dans** la plage
+autorisée reste une anomalie remontée en `PARTS_FORMAT`, pas une fin de liste.
+
+**Point 5 — offre publique.** `getBuyerProfile` retiré des deux écrans
+catalogue : l'offre lue est publique, politique commerciale 1, sans cookie
+acheteur, et ne doit pas être étiquetée avec la devise de session. Les montants
+s'affichent sans symbole, sous le libellé « Catalogue price », et chaque écran
+renvoie la confirmation vers Quick Order. Effet de bord : un aller-retour VTEX
+de moins par rendu.
+
+**Point 6 — référence exacte.** La promesse était fausse, **mesuré** : sur sept
+références, `85021811` rend **6** produits (`85021811k-MO-GotemburgoCAN`…) et
+`1521910` en rend **2** (`1521910`, `1521910k`). L'étiquette « Exact reference »
+n'apparaît donc qu'après **comparaison effective** des références rendues au
+terme saisi, jamais d'après la position dans la liste. Les autres résultats sont
+annoncés comme des correspondances de texte.
+
+**Facettes au-delà de 14.** Dépliant « Show N more » par groupe, sans JavaScript.
+
+## Limites qui restent
+
+- **La compatibilité reste la spécification catalogue `Application`**, pas un
+  fitment Volvo. Inchangé.
+- **Profondeur de catalogue** : 600 produits atteignables à 12 par page. Monter
+  `PARTS_PAGE_SIZE` repousserait la borne (50 × 50 = 2 500) au prix de pages plus
+  lourdes — non fait, à arbitrer.
+- **Seul le premier SKU de chaque produit est mappé**, et le choix du vendeur
+  n'est pas transmis au brouillon. Backlog, inchangé par ce lot.
+- **Recette navigateur non faite** : tout ce qui précède est vérifié par test et
+  par rendu serveur en session d'aperçu. Aucune session VTEX connectée.
+
+## Recette pour William — 5 étapes
+
+1. `/parts`, chercher **`1521910`** : 2 résultats, bandeau vert « Exact reference
+   1521910 found — the other 1 result matches the text of your search ».
+2. Chercher **`YV2RT40AQFB312947`** : bandeau « Matched Truck 147 », 323 pièces.
+   Cliquer le système **Brakes** : doit tomber à **25 pièces**, le bandeau
+   véhicule restant affiché.
+3. Depuis là, cliquer **« Remove vehicle »** : le VIN disparaît du champ, le
+   modèle **FH13 Classic** apparaît en facette active et reste retirable d'un clic.
+4. `/parts` sans recherche : pied de liste « Page 1 of 50 » et mention de la
+   limite des 50 pages. Taper `/parts?page=999` dans l'URL : doit afficher
+   « Page 50 of 50 », pas une erreur.
+5. Sur n'importe quelle pièce : le prix s'affiche **sans symbole monétaire**,
+   sous-titré « Catalogue price », avec « Listed as available · confirm in Quick
+   Order ». L'ajout au brouillon doit continuer de fonctionner comme avant.
+
+## Vérifications
+
+```
+npm run typecheck   ✓
+npm run lint        ✓
+npm run build       ✓
+npm test            ✓  41 passés, 1 sauté (scénario HTTP, nécessite le serveur)
+prettier --check    ✓  parts-picker.tsx conforme sans avoir été reformaté
+```

@@ -17,8 +17,10 @@ import {
   vehicleById,
   vehiclePhoto,
 } from "@/domain/fleet";
-import { getBuyerProfile } from "@/server/account";
 import { listVehicleSystems, searchVehicleParts } from "@/server/parts";
+// >>> CLAUDE — lot fiabilisation, 20/09/2026 — à relire
+import { MAX_PARTS_PAGE, clampPartsPage } from "@/domain/parts";
+// <<< CLAUDE
 import { PortalError } from "@/server/security";
 import { getSession } from "@/server/session";
 import { validateVtexSession } from "@/server/vtex";
@@ -52,28 +54,27 @@ export default async function VehiclePage({
     /^[a-z0-9][a-z0-9-]{0,59}$/.test(query.system)
       ? query.system
       : undefined;
-  const page =
+  // >>> CLAUDE — lot fiabilisation, 20/09/2026 — à relire
+  // La page est bornée avant l'appel : au-delà de la limite du moteur la réponse
+  // sort du contrat. La devise acheteur n'est plus lue ici : l'offre affichée est
+  // publique, elle ne doit pas être étiquetée avec la devise de session.
+  const page = clampPartsPage(
     typeof query.page === "string" && /^[1-9][0-9]?$/.test(query.page)
       ? Number(query.page)
-      : 1;
+      : 1,
+  );
 
-  const [systems, results, currency] = await Promise.all([
+  const [systems, results] = await Promise.all([
     listVehicleSystems(vehicle.application)
       .then((data) => ({ data, error: null }))
       .catch((error: unknown) => ({ data: null, error })),
     searchVehicleParts(vehicle.application, system, page)
       .then((data) => ({ data, error: null }))
       .catch((error: unknown) => ({ data: null, error })),
-    session.context.mode === "vtex"
-      ? getBuyerProfile(session)
-          .then((profile) => profile.currency ?? undefined)
-          .catch(() => undefined)
-      : Promise.resolve(undefined),
   ]);
 
-  const pages = results.data
-    ? Math.max(1, Math.ceil(results.data.total / results.data.pageSize))
-    : 1;
+  const pages = results.data ? results.data.pages : 1;
+  // <<< CLAUDE
   const pageLink = (value: number) => {
     const params = new URLSearchParams();
     if (system) params.set("system", system);
@@ -180,34 +181,59 @@ export default async function VehiclePage({
         ) : (
           <>
             <p>{results.data.total} parts listed for this vehicle</p>
-            <PartsPicker parts={results.data.parts} currency={currency} />
-            <nav className="order-pagination" aria-label="Part pages">
-              {results.data.page > 1 && (
-                <Link
-                  className="button secondary"
-                  href={pageLink(results.data.page - 1)}
-                >
-                  Previous
+            <PartsPicker parts={results.data.parts} />
+            {/* >>> CLAUDE — lot fiabilisation : page hors plage annoncée telle quelle */}
+            {results.data.page > pages ? (
+              <nav className="order-pagination" aria-label="Part pages">
+                <span>
+                  No results on page {results.data.page}. The last page is{" "}
+                  {pages}.
+                </span>
+                <Link className="button secondary" href={pageLink(pages)}>
+                  Go to page {pages}
                 </Link>
-              )}
-              <span>
-                Page {results.data.page} of {pages}
-              </span>
-              {results.data.page < pages && (
-                <Link
-                  className="button secondary"
-                  href={pageLink(results.data.page + 1)}
-                >
-                  Next
-                </Link>
-              )}
-            </nav>
+              </nav>
+            ) : (
+              <nav className="order-pagination" aria-label="Part pages">
+                {results.data.page > 1 && (
+                  <Link
+                    className="button secondary"
+                    href={pageLink(results.data.page - 1)}
+                  >
+                    Previous
+                  </Link>
+                )}
+                <span>
+                  Page {results.data.page} of {pages}
+                </span>
+                {results.data.page < pages && (
+                  <Link
+                    className="button secondary"
+                    href={pageLink(results.data.page + 1)}
+                  >
+                    Next
+                  </Link>
+                )}
+              </nav>
+            )}
+            {/* <<< CLAUDE */}
           </>
         )}
+        {/* >>> CLAUDE — lot fiabilisation, 20/09/2026 — à relire */}
+        {results.data?.truncated && (
+          <p className="form-note">
+            The catalogue search returns at most {MAX_PARTS_PAGE} pages. Pick a
+            system above to reach the remaining parts.
+          </p>
+        )}
         <p className="form-note">
-          Parts are listed from the catalogue `Application` specification.
-          Prices, availability and cart are real.
+          Catalogue price and availability, read from the public trade policy
+          without your buyer session. Your contract price, your currency and the
+          quantity actually available are confirmed by the price and
+          availability check in Quick Order. Parts are listed from the catalogue
+          `Application` specification, which is not a Volvo fitment source.
         </p>
+        {/* <<< CLAUDE */}
       </section>
     </Shell>
   );

@@ -1644,4 +1644,52 @@ select {
   font-size: 13px;
   font-weight: 600;
 }
+
+/* — fiabilisation 20/09 : retrait véhicule, référence exacte, facettes dépliables */
+.remove-vehicle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.exact-match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-radius: 10px;
+  background: rgba(22, 122, 75, 0.1);
+  color: var(--green);
+  font-size: 14px;
+}
+.exact-match strong {
+  font-variant-numeric: tabular-nums;
+}
+.facet-more {
+  margin-top: 8px;
+}
+.facet-more summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  padding: 4px 0;
+}
+.facet-more .system-chips {
+  margin-top: 8px;
+}
+.part-price small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
 /* <<< CLAUDE */

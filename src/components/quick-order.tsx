@@ -9,11 +9,14 @@ import {
 } from "@/domain/order-draft";
 export function QuickOrder({
   initialLines = [],
+  initialRevision = 0,
   source = "Manual preparation",
 }: {
   initialLines?: DraftLine[];
+  initialRevision?: number;
   source?: string;
 }) {
+  const [revision, setRevision] = useState(initialRevision);
   const [lines, updateLines] = useState(initialLines);
   const [cartItems, setCartItems] = useState<CartItem[] | null>(null);
   const [checked, setChecked] = useState<Preparation | null>(null);
@@ -64,7 +67,7 @@ export function QuickOrder({
           : {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ lines }),
+              body: JSON.stringify({ lines, revision }),
             },
       );
       const data = await response.json();
@@ -74,6 +77,7 @@ export function QuickOrder({
         const restored = draftLineSchema.array().max(200).parse(data.lines);
         setLines(restored);
       }
+      setRevision(data.revision);
       setSaved(
         load ? "Saved draft restored." : "Draft saved for this portal session.",
       );
