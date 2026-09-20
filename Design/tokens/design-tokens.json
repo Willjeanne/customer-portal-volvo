@@ -1,0 +1,22 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "meta": {
+    "status": "draft-derived-from-approved-visuals",
+    "note": "Validate exact values during design-system freeze. Screenshots remain authoritative."
+  },
+  "color": {
+    "brand": { "blue": { "$value": "#0563D8", "$type": "color" }, "navy": { "$value": "#081738", "$type": "color" } },
+    "surface": { "base": { "$value": "#FFFFFF", "$type": "color" }, "subtle": { "$value": "#F5F8FC", "$type": "color" }, "selected": { "$value": "#E8F2FF", "$type": "color" } },
+    "text": { "primary": { "$value": "#081738", "$type": "color" }, "secondary": { "$value": "#526784", "$type": "color" }, "link": { "$value": "#0563D8", "$type": "color" } },
+    "border": { "default": { "$value": "#D9E2EE", "$type": "color" }, "strong": { "$value": "#B9C7D8", "$type": "color" } },
+    "status": { "success": { "$value": "#10A866", "$type": "color" }, "warning": { "$value": "#F0A000", "$type": "color" }, "danger": { "$value": "#E3222E", "$type": "color" }, "info": { "$value": "#0563D8", "$type": "color" } }
+  },
+  "typography": {
+    "fontFamily": { "ui": { "$value": "Inter, Arial, sans-serif", "$type": "fontFamily" } },
+    "fontSize": { "body": { "$value": "16px", "$type": "dimension" }, "small": { "$value": "14px", "$type": "dimension" }, "h2": { "$value": "28px", "$type": "dimension" }, "h1": { "$value": "44px", "$type": "dimension" } },
+    "fontWeight": { "regular": { "$value": 400, "$type": "fontWeight" }, "medium": { "$value": 500, "$type": "fontWeight" }, "semibold": { "$value": 600, "$type": "fontWeight" }, "bold": { "$value": 700, "$type": "fontWeight" } }
+  },
+  "space": { "1": { "$value": "4px", "$type": "dimension" }, "2": { "$value": "8px", "$type": "dimension" }, "3": { "$value": "12px", "$type": "dimension" }, "4": { "$value": "16px", "$type": "dimension" }, "6": { "$value": "24px", "$type": "dimension" }, "8": { "$value": "32px", "$type": "dimension" }, "12": { "$value": "48px", "$type": "dimension" } },
+  "radius": { "small": { "$value": "4px", "$type": "dimension" }, "default": { "$value": "6px", "$type": "dimension" }, "pill": { "$value": "999px", "$type": "dimension" } },
+  "layout": { "sidebarWidth": { "$value": "192px", "$type": "dimension" }, "topContextHeight": { "$value": "80px", "$type": "dimension" }, "contentMaxWidth": { "$value": "1440px", "$type": "dimension" } }
+}
