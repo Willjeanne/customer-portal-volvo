@@ -1,3 +1,4 @@
+import { Organization } from "@/components/organization";
 import { Preparation, ReplenishmentLists } from "@/components/replenishment";
 import { Quotes } from "@/components/quotes";
 // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
@@ -13,7 +14,6 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/server/session";
 import { validateVtexSession } from "@/server/vtex";
 import { canVisit, navigation } from "@/domain/portal";
-import { Shell } from "@/components/shell";
 import { Home } from "@/components/home";
 import { BuyerProfile, BuyerOrders } from "@/components/account-data";
 import { Icon } from "@/components/icons";
@@ -30,6 +30,7 @@ export default async function Page({
     list?: string;
     status?: string;
     label?: string;
+    unitPath?: string;
     // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
     q?: string;
     f?: string | string[];
@@ -52,7 +53,7 @@ export default async function Page({
       await validateVtexSession(session.upstreamCookies || "");
     } catch {
       return (
-        <main className="standalone-error">
+        <section className="detail-panel">
           <h1>VTEX access could not be confirmed</h1>
           <p>
             Your private workspace is unavailable until access is verified
@@ -61,13 +62,13 @@ export default async function Page({
           <Link href="/login" className="button primary">
             Return to sign in
           </Link>
-        </main>
+        </section>
       );
     }
   }
   if (!canVisit(context, section))
     return (
-      <Shell context={context}>
+      <>
         <section className="empty-panel large">
           <Icon name="ShieldCheck" size={44} />
           <h1>Access not available</h1>
@@ -76,18 +77,18 @@ export default async function Page({
             Back to home
           </Link>
         </section>
-      </Shell>
+      </>
     );
   return (
-    <Shell context={context}>
+    <>
       {section === "home" ? (
         <Home context={context} />
       ) : /* >>> CLAUDE — lot flotte, 20/09/2026 — à relire
              La flotte porte son propre titre « My fleet », comme la maquette. */
       section === "fleet" ? (
         <FleetList selected={context.vehicle || undefined} />
-      ) : /* <<< CLAUDE */ (
-        <>
+      ) : (
+        /* <<< CLAUDE */ <>
           <p className="eyebrow">WANDERGARAGE · CUSTOMER PORTAL</p>
           <h1>{item.label}</h1>
           {/* >>> CLAUDE — lot find parts, 20/09/2026 — à relire */}
@@ -153,22 +154,12 @@ export default async function Page({
               </p>
             </section>
           ) : section === "organization" ? (
-            <section className="detail-panel">
-              <h2>{context.company}</h2>
-              <p className="lead">Your active organizational context</p>
-              <dl>
-                <dt>Unit</dt>
-                <dd>{context.unit.name}</dd>
-                <dt>Commercial contract</dt>
-                <dd>{context.contract}</dd>
-                <dt>Access</dt>
-                <dd>{context.user.persona}</dd>
-              </dl>
-              <p className="form-note">
-                Team, addresses, budgets and purchasing controls are scheduled
-                in the account-management tranche.
-              </p>
-            </section>
+            <Organization
+              session={session}
+              unitPath={
+                typeof query.unitPath === "string" ? query.unitPath : ""
+              }
+            />
           ) : (
             <section className="empty-panel large">
               <Icon name={item.icon} size={44} />
@@ -192,7 +183,7 @@ export default async function Page({
           )}
         </>
       )}
-    </Shell>
+    </>
   );
 }
 const descriptions: Record<string, string> = {

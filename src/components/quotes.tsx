@@ -1,3 +1,4 @@
+import Form from "next/form";
 import Link from "next/link";
 import { listStoreQuotes } from "@/server/custom-quotes";
 import type { PortalSession } from "@/server/session-store";
@@ -32,7 +33,7 @@ export async function Quotes({
   return (
     <section className="detail-panel">
       <h2>Your quotes</h2>
-      <form className="draft-form" action="/quotes">
+      <Form className="draft-form" action="/quotes">
         <label>
           Quote name
           <input name="label" defaultValue={label} maxLength={100} />
@@ -50,7 +51,7 @@ export async function Quotes({
         </label>
         <button className="button primary">Filter quotes</button>
         <Link href="/quotes">Clear filters</Link>
-      </form>
+      </Form>
       {session.context.mode === "preview" ? (
         <p>Sign in with VTEX to load your quotes.</p>
       ) : !data ? (

@@ -1,12 +1,16 @@
 "use client";
 import type { Preparation, CartResult, CartItem } from "@/domain/cart";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   draftCsv,
   draftLineSchema,
   parseOrderCsv,
   type DraftLine,
 } from "@/domain/order-draft";
+// >>> CLAUDE — lot import xlsx, 20/09/2026 — à relire
+import { parseOrderXlsx } from "@/domain/order-xlsx";
+// <<< CLAUDE
 export function QuickOrder({
   initialLines = [],
   initialRevision = 0,
@@ -16,6 +20,7 @@ export function QuickOrder({
   initialRevision?: number;
   source?: string;
 }) {
+  const router = useRouter();
   const [revision, setRevision] = useState(initialRevision);
   const [lines, updateLines] = useState(initialLines);
   const [cartItems, setCartItems] = useState<CartItem[] | null>(null);
@@ -120,28 +125,8 @@ export function QuickOrder({
       setBusy(false);
     }
   }
-  async function openCheckout() {
-    setBusy(true);
-    setErrors([]);
-    try {
-      const response = await fetch("/api/portal/checkout-handoff", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      });
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error || "Checkout could not be opened.");
-      window.location.assign(data.url);
-    } catch (error) {
-      setErrors([
-        error instanceof Error
-          ? error.message
-          : "Checkout could not be opened.",
-      ]);
-    } finally {
-      setBusy(false);
-    }
+  function openCheckout() {
+    router.push("/checkout");
   }
   async function loadCart() {
     setBusy(true);
@@ -250,20 +235,37 @@ export function QuickOrder({
             >
               Import pasted rows
             </button>
+            {/* >>> CLAUDE — lot import xlsx, 20/09/2026 — à relire
+                Sélecteur de fichier et branchement uniquement : les règles de
+                préparation restent celles de order-draft.ts, et un import qui
+                échoue ne remplace pas le brouillon courant. */}
             <label>
-              Choose CSV file
+              Choose CSV or Excel file
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 onChange={async (event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
+                  const excel = /\.xlsx$/i.test(file.name);
                   if (file.size > 100_000) {
-                    setErrors(["CSV must be smaller than 100 KB."]);
+                    setErrors([
+                      excel
+                        ? "Excel file must be smaller than 100 KB."
+                        : "CSV must be smaller than 100 KB.",
+                    ]);
                     return;
                   }
                   try {
-                    importText(await file.text());
+                    if (excel) {
+                      const result = await parseOrderXlsx(
+                        await file.arrayBuffer(),
+                      );
+                      setErrors(result.errors);
+                      if (!result.errors.length) setLines(result.lines);
+                    } else {
+                      importText(await file.text());
+                    }
                   } catch {
                     setErrors(["The file could not be read."]);
                   }
@@ -271,6 +273,7 @@ export function QuickOrder({
                 }}
               />
             </label>
+            {/* <<< CLAUDE */}
           </details>
         </fieldset>
         {errors.length > 0 && (
@@ -351,7 +354,7 @@ export function QuickOrder({
             simulation, not total warehouse stock.
           </p>
           <div style={{ overflowX: "auto" }}>
-            <table className="orders-table">
+            <table className="orders-table availability-table">
               <thead>
                 <tr>
                   <th>Part / SKU</th>
@@ -412,8 +415,8 @@ export function QuickOrder({
           Refresh portal cart
         </button>
         <p>
-          Continue on the store checkout to confirm delivery and payment. You
-          may be asked to sign in there.
+          Continue in the portal to choose your delivery address and delivery
+          options.
         </p>
         {cartItems &&
           (cartItems.length ? (

@@ -1,4 +1,9 @@
 import {
+  createCostCenter,
+  createOrganizationUser,
+} from "@/server/organization";
+import { readCheckout, updateShipping } from "@/server/checkout";
+import {
   cartOperation,
   prepareCart,
   transferCart,
@@ -73,7 +78,8 @@ export async function GET(
     if (
       operation !== "context" &&
       operation !== "draft" &&
-      operation !== "cart"
+      operation !== "cart" &&
+      operation !== "checkout"
     )
       return respond({ error: "Not found" }, 404);
     const session = await requireSession();
@@ -89,6 +95,8 @@ export async function GET(
           "Your buyer context changed. Please sign in again.",
         );
     }
+    if (operation === "checkout")
+      return respond(await cartOperation(session, () => readCheckout(session)));
     if (operation === "cart")
       return respond(
         await cartOperation(session, () => readPortalCart(session)),
@@ -113,7 +121,9 @@ export async function POST(
     const raw = await request.text();
     if (
       raw.length >
-      (["draft", "prepare-cart"].includes((await params).operation)
+      (["draft", "prepare-cart", "checkout-shipping"].includes(
+        (await params).operation,
+      )
         ? 30000
         : 4096)
     )
@@ -186,7 +196,10 @@ export async function POST(
     if (
       operation === "prepare-cart" ||
       operation === "transfer-cart" ||
-      operation === "checkout-handoff"
+      operation === "checkout-handoff" ||
+      operation === "checkout-shipping" ||
+      operation === "create-cost-center" ||
+      operation === "create-organization-user"
     ) {
       return respond(
         await cartOperation(session, async () => {
@@ -204,6 +217,12 @@ export async function POST(
                 "Your buyer context changed. Please sign in again.",
               );
           }
+          if (operation === "create-cost-center")
+            return createCostCenter(session, body);
+          if (operation === "create-organization-user")
+            return createOrganizationUser(session, body);
+          if (operation === "checkout-shipping")
+            return updateShipping(session, body);
           if (operation === "checkout-handoff") {
             z.object({}).strict().parse(body);
             return checkoutHandoff(session);

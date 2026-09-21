@@ -1,3 +1,4 @@
+import Form from "next/form";
 /**
  * ⚠️  ÉCRIT PAR CLAUDE — lot « find parts », 20/09/2026.
  *     Fiabilisé le 20/09/2026 : points 3 à 6 de docs/REVUE-FLOTTE-PARTS.md.
@@ -100,7 +101,7 @@ export async function FindParts({
     <>
       <section className="detail-panel">
         <h2>Find the right part</h2>
-        <form className="parts-search" action="/parts">
+        <Form className="parts-search" action="/parts">
           <label>
             <Icon name="MagnifyingGlass" size={20} />
             <span className="visually-hidden">
@@ -120,7 +121,7 @@ export async function FindParts({
               Clear
             </Link>
           )}
-        </form>
+        </Form>
 
         {matched ? (
           <p className="parts-matched">

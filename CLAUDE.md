@@ -1,5 +1,19 @@
 @AGENTS.md
 
+## Priorité courante — démo Volvo (décision William, 21 septembre)
+
+My Organization est suffisant visuellement pour la démo Volvo : conserver les écrans actuels, ne pas poursuivre ce chantier avant la démo. La recette des créations utilisateur/centre de coût et toute validation d’écriture sont reportées après la démo, avant partage aux autres SEs VTEX. Aucun succès d’écriture réel ne doit être annoncé. Restent dans le backlog : modification des rôles, création sous-unités, édition/suppression centres de coût, pagination complète et recette par rôle. Ce report ne retire aucune fonction du périmètre.
+
+Priorités actives :
+1. Consolider le parcours de démonstration déjà utilisable : accueil → recherche référence ou flotte/véhicule → préparation Quick Order (saisie/CSV/Excel) → contrôle prix/disponibilité → panier. Corriger seulement les défauts qui gênent la démo, conserver les wireframes et éviter les vérifications navigateur répétées ; courte recette par William.
+2. Checkout : obtenir le nom/la portée du flag B2B, puis qualifier adresse/livraison et raccorder paiement/confirmation si débloqué. Ne pas annoncer une finalisation d’achat opérationnelle avant recette.
+3. Devis : obtenir la source autorisée équivalente à person.email/profile.email pour l’organisation, puis qualifier accès, création et relecture.
+4. Listes : confirmer app/version/workspace et requête GraphQL fonctionnelle avant raccordement ; les appels minimaux restent rejetés.
+5. Préparer le script final de démo et le point de sauvegarde local avec distinction données réelles/fixtures/parcours non validés. Pas de push ni déploiement demandé dans cette décision.
+
+Après la démo / préparation au partage SEs : reprendre My Organization et sa recette, puis qualification du déploiement et des autres fonctions restantes selon priorités convenues. La disponibilité des intégrations détermine l’ordre entre checkout, devis et listes ; aucune nouvelle série de sondages identiques sans information nouvelle.
+
+
 # Volvo Customer Portal — état de reprise
 
 Mise à jour : **20 septembre 2026**. Développement local autorisé. Périmètre complet conservé ; le premier lot préparation/panier est **partiellement connecté**, pas terminé.
@@ -83,6 +97,67 @@ Contrôles : TypeScript/lint réussis, 43 tests unitaires + scénario HTTP exéc
 
 ## Décision courante — cible de checkout modifiée
 
-William autorise le checkout intégré au Customer Portal et la création de devis depuis le panier. Le checkout externe demande une reconnexion et reste un mécanisme transitoire, pas la cible. Prochaine réalisation Codex : panier/adresse/livraison VTEX dans le portail, puis moyens de paiement/confirmation ; devis persistants dans quotes avec identité/prix/organisation serveur et relecture. Aucun achat automatique de recette.
+William autorise le checkout intégré au Customer Portal et la création de devis depuis le panier. Le checkout externe demande une reconnexion et reste un mécanisme transitoire, pas la cible. Panier/adresse/livraison codés dans le portail, recette réelle attendue ; prochaine réalisation : moyens de paiement/confirmation ; devis persistants dans quotes avec identité/prix/organisation serveur et relecture. Aucun achat automatique de recette.
 
 Lot 3 Claude reçu et relu : VIN conserve les facettes secondaires, pagination bornée avec lien vers dernière page réelle, référence exacte comparée, offre publique correctement identifiée et facettes supplémentaires accessibles. Maintenir 12 articles/page pour ce lot ; profondeur limitée explicitement. Premier SKU, seller non transmis et fitment illustratif restent ouverts. Aucun nouveau lot attribué à Claude avant découpage explicite.
+
+
+## Dernier lot Codex — checkout A intégré (20 septembre)
+
+Continue to checkout ouvre désormais /checkout dans le portail. Lecture du panier existant, sélection d’une adresse enregistrée, choix des options de livraison VTEX et affichage des frais/totaux. Le serveur vérifie les droits, la révision du panier et l’appartenance des adresses/options avant modification. Aucun paiement ni commande soumis.
+
+Validation automatisée : typecheck et build réussis, 45 tests réussis, scénario HTTP sauté. Recette réelle à William : transférer un panier, ouvrir checkout, appliquer une adresse puis une livraison et vérifier le total. Disponibilité réelle des adresses et SLA à confirmer. Création d’adresse, retrait, créneaux programmés, paiement/confirmation et création/relecture de devis restent ouverts. Le lot 3 Claude reste intégré, sans nouveau périmètre attribué.
+
+
+## Dernière avancée — continuité de navigation et travail parallèle
+
+Cadre Volvo sorti de la zone de chargement des sections : menu/en-tête entourent maintenant le message Loading… au lieu de disparaître. Formulaires recherche pièces et filtres devis passent en navigation interne. Contrôles de session conservés. Recette visuelle confiée à William ; aucun navigateur automatisé lancé.
+
+Autre codeur : import XLSX réservé (module/tests/exemple et branchement import Quick Order), handoff attendu. Codex : navigation et devis. Checkout en attente du flag B2B signalé par William, encore non identifié. Source de création des devis relue : le site utilise une clé applicative pour Master Data quotes ; accès et isolation organisation doivent être qualifiés pour le portail avant raccordement. Création non implémentée, aucune écriture VTEX effectuée.
+
+
+### Devis : blocage désormais mesuré
+
+Qualification réelle : connexion acheteur valide, identité confirmée, profile.email absent après création puis mise à jour de session. Lecture et écriture Master Data non atteintes, droits encore non qualifiés. Diagnostic corrigé en QUOTE_ORGANIZATION_MISSING, test ciblé réussi sans appel hors organisation. Aucune écriture devis. Détails et question équipe B2B dans docs/SOURCES_PARCOURS.md. Ne pas confondre avec le flag checkout dont la portée reste inconnue.
+
+
+### Recette Excel et correction tableau prix/disponibilité
+
+William confirme via le handoff de l’autre codeur que l’import Excel fonctionne. Codex a borné la largeur du nom de pièce à 260px et autorisé son repli uniquement dans le tableau Price & availability check (classe availability-table). Les autres cellules conservent nowrap ; les autres tableaux et les zones d’import restent inchangés. Défilement de secours conservé sur petit écran. Recette visuelle du correctif à confirmer avec un nom long, par exemple la référence 21811707.
+
+
+### 21 septembre — listes qualifiées, raccordement en attente
+
+Trois sondages réels : requête complète et minimale sur le site, minimale sur domaine VTEX ; tous HTTP 400 GraphQL validation failed. Contrat local conforme au code source du site mais rejeté par le service actif. Installation/version/workspace restent à confirmer, sans affirmer une app absente. Diagnostic spécifique ajouté, tests ciblés ; aucune écriture ni liste simulée. Message équipe VTEX dans SOURCES_PARCOURS.md. Devis et checkout conservent leurs dépendances séparées ; import Excel validé par William.
+
+
+## 21 septembre — My Organization : première tranche
+
+Adaptateur organisation ajouté et écran raccordé : sous-unités et première page utilisateurs de l’unité active, appels séparés avec refus explicites, aucun identifiant d’unité accepté du navigateur. Sources : plugin Buyer Portal 2.0.27 OrgUnitClient (children), UsersClient (users?page=1&search=). Données réelles uniquement, pas de liste vide substituée en cas d’erreur.
+
+Qualification réelle avec WanderGarage buyer : GET unité, children et users retournent tous HTTP 403. L’authentification et la lecture du contexte propre restent valides ; administration non autorisée pour ces appels. Compte organisation administrateur nécessaire pour qualifier une lecture réussie et ensuite les mutations. Aucun utilisateur/unité créé ou modifié. Tests ciblés et typecheck réussis.
+
+Centres de coût : le plugin les expose sous contrats / accountingFieldId=cost-centers (ContractInformationLayout), distincts des unités. Raccordement de leur liste et CRUD encore ouvert, comme création utilisateurs/rôles et unités. Ne pas présenter cette première tranche comme administration complète. Import XLSX de l’autre codeur inchangé.
+
+
+## 21 septembre — centres de coût et création utilisateurs
+
+Recette William via capture : trois sous-unités et deux utilisateurs visibles avec son compte autorisé. Lecture organisation validée pour ce compte ; ne pas généraliser le refus constaté avec buyer.
+
+Nouveau lot codé : liste première page des valeurs cost-centers sous le contrat/unité courants ; création d’une valeur (code/description) ; rôles disponibles via roles/ids et formulaire de création utilisateur v3 (login, nom, email, rôle). Sources : AccountingValuesClient, RolesClient, UsersClient du plugin Buyer Portal 2.0.27. Contrat et unité dérivés serveur, corps stricts, rôle recontrôlé, session revalidée à chaque mutation ; VTEX reste autorité d’écriture. Aucune clé admin ni token de création envoyé au navigateur. Pas de relance automatique ; formulaire bloqué après succès ou résultat incertain, actualisation de la liste après succès.
+
+Validation : TypeScript et deux tests organisation réussis (scope, rôle invalide, refus, absence de fuite token). Pas de création distante par Codex. Recette William : ouvrir My Organization avec le compte autorisé, vérifier centres/rôles, puis créer explicitement un centre et un utilisateur de démonstration si souhaité et vérifier leur présence après actualisation. Une erreur de lecture après succès ne doit pas conduire à soumettre une seconde création.
+
+Restent ouverts : modification des rôles des utilisateurs existants, édition/suppression centres, pagination au-delà première page, création unités. Les formulaires de création sont codés, pas encore validés contre VTEX en écriture. Import XLSX inchangé.
+
+
+## 21 septembre — navigation administrative dans les unités
+
+Sous-unités cliquables et fil d’Ariane dans My Organization, jusqu’aux niveaux descendants (ex. Fleet Operations → Chicago Depot). Équipe, rôles et formulaire utilisateur suivent l’unité sélectionnée et affichent son nom. Le serveur vérifie chaque lien parent/enfant auprès de VTEX avant lecture du périmètre et à nouveau avant création ; un chemin périmé/étranger est refusé. Aucun changement de session, panier ou localisation d’achat. Centres de coût maintenus dans le périmètre comptable initial, avec unité explicitement nommée.
+
+Typecheck et trois tests organisation réussis, dont création sur petit-enfant, refus après retrait de la hiérarchie et conservation de l’unité d’achat. Recette visuelle William attendue : ouvrir Fleet Operations puis Chicago Depot, vérifier titre Team et cible du formulaire, revenir par le fil d’Ariane. Aucune création distante effectuée. Pagination utilisateurs et édition des rôles restent ouvertes.
+
+
+### Navigation organisation — présentation affinée
+
+Liens à puces remplacés par des lignes pleine largeur, icône bâtiment, libellé secondaire et chevron. Fil d’Ariane discret avec unité courante non cliquable, focus clavier visible et adaptation mobile. CSS limité aux classes organization-*. Aucun changement API ou droits. Recette visuelle William attendue.

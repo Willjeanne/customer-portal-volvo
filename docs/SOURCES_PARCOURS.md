@@ -24,3 +24,25 @@ Chemins de référence sous `/Users/williamjeanne/faststore-volvo/faststore-volv
 Ne pas utiliser `granted-order-entry` comme synonyme de PlaceOrders : son usage local concerne l’accès à la page Order Entry. Ne pas supposer la B2B Suite installée pour qualifier le Buyer Portal.
 
 Le hook useCreateQuote confirme : mutation createQuote, organisation issue de person.email, auteur issu de b2b.userEmail, prix multipliés par 100 ; le resolver écrit dans quotes avec le schéma v1. Ces champs doivent être dérivés et contrôlés côté serveur dans le portail, pas simplement acceptés du navigateur.
+
+
+## Qualification réelle des devis — 20 septembre
+
+Connexion WanderGarage réussie ; authentication.storeUserId correspond au compte. POST /api/sessions retourne HTTP 201, mais profile est vide : profile.email absent. Confirmation avec le transport à cookies conservés : POST puis PATCH sur session existante, même absence. Aucune clé applicative utilisée, aucun panier ni devis créé.
+
+Le périmètre organisation est donc indisponible avant même la lecture Master Data. Les droits de lecture/écriture quotes restent NON TESTÉS ; ne pas confondre ce résultat avec un refus Master Data ni avec le flag checkout non identifié. Pas de substitution par customerId ou email acheteur : le contrat existant stocke person.email dans organizationId.
+
+Correctif local : absence de contexte reconnue comme QUOTE_ORGANIZATION_MISSING (409), message explicite au lieu de CUSTOM_QUOTES_FORMAT. Test ciblé réussi : aucun appel quotes sans organisation ; isolation utilisateur/organisation et refus API toujours couverts.
+
+Question technique à transmettre : « Pour volvoemea / WanderGarage, le login B2B est valide mais /api/sessions ne fournit pas profile.email, même après POST puis PATCH avec cookies conservés et X-FORWARDED-HOST www.emeafaststore.com. Le parcours create-quote utilise person.email comme organizationId. Quelle étape initialise ce champ, ou quelle source serveur fournit exactement la même valeur ? Le flag checkout conditionne-t-il cette transformation de session ? »
+
+
+## 21 septembre — qualification réelle des listes
+
+Source locale comparée : replenishmentApi.ts utilise bien getLists/getListItems et provider vtex.replenishment-service@1.x, comme le portail. Authentification WanderGarage réussie. Requête portail complète puis minimale getLists { id } : HTTP 400 GraphQL validation failed sur www.emeafaststore.com. Même requête minimale sur volvoemea.myvtex.com : même erreur. Aucun appel d’écriture, aucune modification d’installation.
+
+Conclusion bornée : le contrat appelé n’est pas accepté sur les deux chemins testés. Ce n’est pas une liste vide ni un refus d’accès établi. L’absence d’installation, une version différente ou un problème de composition du schéma ne sont pas distinguables avec cette réponse sans détail. Ne pas remplacer les listes par l’entité historique PL ou un accès Master Data administratif.
+
+Correctif : code LISTS_CONTRACT_UNAVAILABLE et message expliquant la vérification du contrat nécessaire, au lieu d’une invitation générique à réessayer. JSON invalide traité en LISTS_RESPONSE. Tests ciblés distinguent contrat rejeté, refus 403 et réponse invalide.
+
+À transmettre à l’équipe VTEX : « Sur volvoemea, avec WanderGarage authentifié, POST /_v/private/graphql/v1 et query { getLists @context(provider: "vtex.replenishment-service@1.x") { id } } renvoient HTTP 400 GraphQL validation failed, sur www.emeafaststore.com et volvoemea.myvtex.com. Pouvez-vous confirmer l’app/version active, le workspace et le contrat de lecture des listes, ou fournir une requête fonctionnelle du parcours ? »

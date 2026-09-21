@@ -1109,6 +1109,11 @@ select {
 .orders-table { width: 100%; border-collapse: collapse; text-align: left; margin: 24px 0; }
 .orders-table th, .orders-table td { padding: 16px 12px; border-bottom: 1px solid #e1e5eb; white-space: nowrap; }
 .orders-table th { color: #566171; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.availability-table td:first-child {
+  max-width: 260px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .order-pagination { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 24px; }
 .draft-form { display:flex; align-items:end; gap:16px; flex-wrap:wrap; margin:24px 0; }
 .detail-panel label { display:grid; gap:8px; margin:16px 0; }
@@ -1693,3 +1698,25 @@ select {
   color: var(--muted);
 }
 /* <<< CLAUDE */
+
+
+/* Organization hierarchy — scoped navigation styling. */
+.organization-breadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:16px 0 8px; font-size:13px; }
+.organization-breadcrumb > span { display:inline-flex; align-items:center; gap:8px; min-width:0; }
+.organization-breadcrumb a { color:#566171; text-decoration:none; border-radius:3px; }
+.organization-breadcrumb a:hover { color:var(--navy); text-decoration:underline; }
+.organization-breadcrumb svg { color:#8792a3; flex-shrink:0; }
+.organization-breadcrumb strong { font-weight:600; overflow-wrap:anywhere; }
+.organization-hint { color:#566171; font-size:14px; margin:0 0 24px; }
+.organization-unit-list { list-style:none; padding:0; margin:0; border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+.organization-unit-list > li + li { border-top:1px solid var(--border); }
+.organization-unit-row { display:flex; align-items:center; gap:16px; padding:18px 20px; color:var(--navy); text-decoration:none; transition:background-color .15s ease; }
+.organization-unit-row:hover { background:#f2f5f9; }
+.organization-unit-row:focus-visible { outline:2px solid var(--navy); outline-offset:-3px; background:#f2f5f9; }
+.organization-breadcrumb a:focus-visible { outline:2px solid var(--navy); outline-offset:3px; }
+.organization-unit-icon { display:grid; place-items:center; flex-shrink:0; width:42px; height:42px; border-radius:6px; background:#eef2f7; color:#435570; }
+.organization-unit-label { display:grid; gap:4px; flex:1; min-width:0; overflow-wrap:anywhere; }
+.organization-unit-label strong { font-size:15px; font-weight:600; }
+.organization-unit-label > span { font-size:12px; color:#657185; }
+.organization-unit-row > svg { flex-shrink:0; color:#657185; }
+@media (max-width:600px) { .organization-unit-row { padding:14px 12px; gap:12px; } }

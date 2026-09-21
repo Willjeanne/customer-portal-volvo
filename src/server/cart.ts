@@ -53,7 +53,7 @@ const simulationSchema = z.object({
   ),
 });
 
-async function request<T>(
+export async function checkoutRequest<T>(
   session: PortalSession,
   path: string,
   schema: z.ZodType<T>,
@@ -164,7 +164,7 @@ export async function prepareCart(
 ): Promise<Preparation> {
   const { lines } = preparationInput.parse(input);
   session.preparation = undefined;
-  const context = await request(
+  const context = await checkoutRequest(
     session,
     "/api/sessions?items=authentication.storeUserId,store.channel,store.countryCode,store.currencyCode",
     contextSchema,
@@ -195,7 +195,7 @@ export async function prepareCart(
     const params = new URLSearchParams({ sc: channel, _from: "0", _to: "49" });
     if (/^\d+$/.test(line.sku)) params.set("fq", `skuId:${line.sku}`);
     else params.set("ft", line.sku);
-    let products = await request(
+    let products = await checkoutRequest(
       session,
       `/api/catalog_system/pub/products/search?${params}`,
       productsSchema,
@@ -210,7 +210,7 @@ export async function prepareCart(
     if (!candidates.length && /^\d+$/.test(line.sku)) {
       params.delete("fq");
       params.set("ft", line.sku);
-      products = await request(
+      products = await checkoutRequest(
         session,
         `/api/catalog_system/pub/products/search?${params}`,
         productsSchema,
@@ -260,7 +260,7 @@ export async function prepareCart(
     );
   for (let start = 0; start < valid.length; start += 50) {
     const batch = valid.slice(start, start + 50);
-    const simulated = await request(
+    const simulated = await checkoutRequest(
       session,
       `/api/checkout/pub/orderForms/simulation?sc=${encodeURIComponent(channel)}`,
       simulationSchema,
@@ -341,7 +341,7 @@ export async function transferCart(session: PortalSession, id: string) {
     );
   // Consume before the first write. An uncertain network result must not cause a duplicate retry.
   session.preparation = undefined;
-  const before = await request(
+  const before = await checkoutRequest(
     session,
     session.orderFormId
       ? `/api/checkout/pub/orderForm/${session.orderFormId}`
@@ -360,7 +360,7 @@ export async function transferCart(session: PortalSession, id: string) {
     seller: line.seller!,
     quantity: line.requested,
   }));
-  const after = await request(
+  const after = await checkoutRequest(
     session,
     `/api/checkout/pub/orderForm/${before.orderFormId}/items`,
     formSchema,
@@ -383,7 +383,7 @@ export async function readPortalCart(session: PortalSession) {
       "Sign in with VTEX to view the cart.",
     );
   if (!session.orderFormId) return { items: [] };
-  const form = await request(
+  const form = await checkoutRequest(
     session,
     `/api/checkout/pub/orderForm/${session.orderFormId}`,
     formSchema,

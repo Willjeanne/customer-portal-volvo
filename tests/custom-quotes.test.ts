@@ -12,7 +12,8 @@ test("custom quotes scope by server identity, convert cents and reject foreign d
   };
   let foreign = false,
     denied = false,
-    wrongUser = false;
+    wrongUser = false,
+    missingOrganization = false;
   let quoteCalls = 0;
   t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
     assert.equal(init.cache, "no-store");
@@ -25,7 +26,9 @@ test("custom quotes scope by server identity, convert cents and reject foreign d
               value: wrongUser ? "other" : session.context.user.id,
             },
           },
-          profile: { email: { value: "contract@example.com" } },
+          profile: missingOrganization
+            ? {}
+            : { email: { value: "contract@example.com" } },
           store: { currencyCode: { value: "USD" } },
         },
       });
@@ -66,6 +69,19 @@ test("custom quotes scope by server identity, convert cents and reject foreign d
   await assert.rejects(listStoreQuotes(session, { page: 1, label: "" }), {
     code: "CUSTOM_QUOTES_UNAVAILABLE",
   });
+  denied = false;
+  missingOrganization = true;
+  const beforeMissing = quoteCalls;
+  await assert.rejects(listStoreQuotes(session, { page: 1, label: "" }), {
+    code: "QUOTE_ORGANIZATION_MISSING",
+    status: 409,
+  });
+  assert.equal(
+    quoteCalls,
+    beforeMissing,
+    "Never query quotes without organization scope",
+  );
+  missingOrganization = false;
   const before = quoteCalls;
   wrongUser = true;
   await assert.rejects(listStoreQuotes(session, { page: 1, label: "" }), {

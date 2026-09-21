@@ -1,5 +1,19 @@
 # Volvo B2B Customer Portal — cadrage avant initialisation
 
+## Priorité courante — démo Volvo (décision William, 21 septembre)
+
+My Organization est suffisant visuellement pour la démo Volvo : conserver les écrans actuels, ne pas poursuivre ce chantier avant la démo. La recette des créations utilisateur/centre de coût et toute validation d’écriture sont reportées après la démo, avant partage aux autres SEs VTEX. Aucun succès d’écriture réel ne doit être annoncé. Restent dans le backlog : modification des rôles, création sous-unités, édition/suppression centres de coût, pagination complète et recette par rôle. Ce report ne retire aucune fonction du périmètre.
+
+Priorités actives :
+1. Consolider le parcours de démonstration déjà utilisable : accueil → recherche référence ou flotte/véhicule → préparation Quick Order (saisie/CSV/Excel) → contrôle prix/disponibilité → panier. Corriger seulement les défauts qui gênent la démo, conserver les wireframes et éviter les vérifications navigateur répétées ; courte recette par William.
+2. Checkout : obtenir le nom/la portée du flag B2B, puis qualifier adresse/livraison et raccorder paiement/confirmation si débloqué. Ne pas annoncer une finalisation d’achat opérationnelle avant recette.
+3. Devis : obtenir la source autorisée équivalente à person.email/profile.email pour l’organisation, puis qualifier accès, création et relecture.
+4. Listes : confirmer app/version/workspace et requête GraphQL fonctionnelle avant raccordement ; les appels minimaux restent rejetés.
+5. Préparer le script final de démo et le point de sauvegarde local avec distinction données réelles/fixtures/parcours non validés. Pas de push ni déploiement demandé dans cette décision.
+
+Après la démo / préparation au partage SEs : reprendre My Organization et sa recette, puis qualification du déploiement et des autres fonctions restantes selon priorités convenues. La disponibilité des intégrations détermine l’ordre entre checkout, devis et listes ; aucune nouvelle série de sondages identiques sans information nouvelle.
+
+
 > Mise à jour de phase : William a autorisé le démarrage de la réalisation locale après ce cadrage. Les mentions de phase documentaire ci-dessous sont historiques. Voir [le suivi de réalisation](SUIVI_REALISATION.md) pour l’état implémenté et les limites actuelles.
 
 Date : 18 septembre 2026. Révision après échanges et validation de la mise à jour documentaire par William. Statut : cadrage actif ; aucune implémentation autorisée à ce stade.
@@ -175,11 +189,14 @@ L’arrivée depuis le site public transmet seulement un contexte utile et autor
 
 ## 6. Plan de réalisation par fonctions utilisables
 
+**Ordre opérationnel pendant l’attente du flag checkout signalée par William :** Codex corrige la continuité de navigation (codée, recette visuelle attendue), puis qualifie et raccorde les devis. L’autre codeur prend l’import XLSX, périmètre réservé dans COORDINATION.md. Le nom et la portée du flag B2B restent à confirmer ; le checkout n’est pas déclaré opérationnel. Cette répartition remplace temporairement l’ordre checkout puis devis ci-dessous.
+
+
 **Priorité actualisée le 20 septembre, autorisée par William : checkout dans le portail puis création de devis depuis le panier.** Remplace l’ancienne cible de redirection vers le checkout du site. Préserver les wireframes et la session acheteur serveur.
 
 | Sous-lot Codex | Livraison et critère de sortie |
 |---|---|
-| Checkout A — panier et livraison | Écran portail : panier relu, adresse acheteur autorisée, options/délais/frais retournés par VTEX, recalcul et gestion des refus. Aucun prix/délai inventé. |
+| Checkout A — panier et livraison | Codé le 20 septembre, recette réelle William attendue. Écran portail : panier relu, adresse acheteur autorisée, options/délais/frais retournés par VTEX, recalcul et gestion des refus. Aucun prix/délai inventé. |
 | Checkout B — paiement et confirmation | Moyens réellement disponibles du compte, récapitulatif, autorisations et politiques VTEX, soumission explicite puis confirmation/commande. Qualifier d’abord les moyens B2B du compte ; aucune donnée carte brute dans le BFF. Recette William sans transaction réelle automatique. |
 | Devis A — créer et relire | Nom/note et lignes du panier avec prix, identité et organisation établis côté serveur. Écriture dans le référentiel quotes existant avec autorisation qualifiée ; retour d’un identifiant et relecture du même devis. Aucun fallback silencieux en stockage local. |
 | Devis B — détail et actions | Détail, transitions autorisées et conversion selon les capacités du service, après validation de la création/relecture. |
@@ -300,3 +317,29 @@ Limites : pas d’audit de sécurité complet de l’ancien site, pas d’invent
 ### Clôture de revue du lot 3 Claude
 
 Corrections 3–6 relues dans les fonctions withVehicleModel, clampPartsPage/reachablePages, exactReferenceMatch et les deux écrans. Textes catalogue du PartsPicker et ajout atomique Codex coexistent. Lot intégré au plan comme **codé/testé, recette navigateur connectée en attente**. Les mesures de limite moteur et de comptes de résultats restent les preuves rapportées par Claude, non re-sondées par Codex. Premier SKU, vendeur non transmis et fitment illustratif restent au backlog ; aucune réduction de périmètre.
+
+
+### Dépendance devis constatée
+
+Qualification réelle WanderGarage : identité valide, mais profile.email absent (session créée puis mise à jour). La création/relecture attend la source vérifiable d’organizationId équivalente au person.email du site. Aucun refus Master Data constaté : appel non effectué faute de périmètre. Détails et demande technique dans SOURCES_PARCOURS.md ; import XLSX continue indépendamment.
+
+
+### 21 septembre — listes qualifiées, raccordement en attente
+
+Trois sondages réels : requête complète et minimale sur le site, minimale sur domaine VTEX ; tous HTTP 400 GraphQL validation failed. Contrat local conforme au code source du site mais rejeté par le service actif. Installation/version/workspace restent à confirmer, sans affirmer une app absente. Diagnostic spécifique ajouté, tests ciblés ; aucune écriture ni liste simulée. Message équipe VTEX dans SOURCES_PARCOURS.md. Devis et checkout conservent leurs dépendances séparées ; import Excel validé par William.
+
+
+### Organisation — première tranche du 21 septembre
+
+Écran sous-unités/équipe raccordé en lecture à l’unité de session ; première page utilisateurs explicitement indiquée. Recette réelle buyer : 403 sur les lectures administratives. Attente d’un compte autorisé pour qualifier lecture positive puis création unités/utilisateurs. Centres de coût à raccorder aux champs comptables du contrat, pas aux unités. Gestion complète toujours au périmètre ; aucune mutation implémentée dans cette tranche.
+
+
+## 21 septembre — centres de coût et création utilisateurs
+
+Recette William via capture : trois sous-unités et deux utilisateurs visibles avec son compte autorisé. Lecture organisation validée pour ce compte ; ne pas généraliser le refus constaté avec buyer.
+
+Nouveau lot codé : liste première page des valeurs cost-centers sous le contrat/unité courants ; création d’une valeur (code/description) ; rôles disponibles via roles/ids et formulaire de création utilisateur v3 (login, nom, email, rôle). Sources : AccountingValuesClient, RolesClient, UsersClient du plugin Buyer Portal 2.0.27. Contrat et unité dérivés serveur, corps stricts, rôle recontrôlé, session revalidée à chaque mutation ; VTEX reste autorité d’écriture. Aucune clé admin ni token de création envoyé au navigateur. Pas de relance automatique ; formulaire bloqué après succès ou résultat incertain, actualisation de la liste après succès.
+
+Validation : TypeScript et deux tests organisation réussis (scope, rôle invalide, refus, absence de fuite token). Pas de création distante par Codex. Recette William : ouvrir My Organization avec le compte autorisé, vérifier centres/rôles, puis créer explicitement un centre et un utilisateur de démonstration si souhaité et vérifier leur présence après actualisation. Une erreur de lecture après succès ne doit pas conduire à soumettre une seconde création.
+
+Restent ouverts : modification des rôles des utilisateurs existants, édition/suppression centres, pagination au-delà première page, création unités. Les formulaires de création sont codés, pas encore validés contre VTEX en écriture. Import XLSX inchangé.

@@ -9,7 +9,7 @@ const field = z.object({ value: z.string() });
 const scopeSchema = z.object({
   namespaces: z.object({
     authentication: z.object({ storeUserId: field }),
-    profile: z.object({ email: field }),
+    profile: z.object({ email: field.optional() }).optional(),
     store: z.object({ currencyCode: field }).optional(),
   }),
 });
@@ -106,7 +106,13 @@ export async function listStoreQuotes(
     );
   // Existing createQuote stores person.email in organizationId. Never accept that
   // scope from the browser, and never use the unfiltered application-key resolver.
-  const organization = scope.namespaces.profile.email.value;
+  const organization = scope.namespaces.profile?.email?.value;
+  if (!organization)
+    throw new PortalError(
+      409,
+      "QUOTE_ORGANIZATION_MISSING",
+      "Your VTEX sign-in is valid, but the store has not supplied the organization context required for quotes (profile.email).",
+    );
   if (
     !z.email().safeParse(organization).success ||
     /["'\\\r\n]/.test(organization)
