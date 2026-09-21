@@ -26,9 +26,16 @@ import {
   PortalError,
 } from "@/server/security";
 import { requireSession, SESSION_COOKIE } from "@/server/session";
-import { sessions } from "@/server/session-store";
+import {
+  createSession,
+  revokeSession,
+  withSharedSession,
+  sharedEnabled,
+  sharedLoginLimit,
+} from "@/server/shared-sessions";
 import { signInVtex, validateVtexSession } from "@/server/vtex";
 
+export const maxDuration = 120;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 interface RouteProps {
@@ -68,7 +75,7 @@ function failure(error: unknown): NextResponse {
     500,
   );
 }
-export async function GET(
+async function handleGET(
   _request: Request,
   { params }: RouteProps,
 ): Promise<NextResponse> {
@@ -111,7 +118,7 @@ export async function GET(
     return failure(error);
   }
 }
-export async function POST(
+async function handlePOST(
   request: Request,
   { params }: RouteProps,
 ): Promise<NextResponse> {
@@ -133,7 +140,7 @@ export async function POST(
     const jar = await cookies();
     const oldId = jar.get(SESSION_COOKIE)?.value;
     if (operation === "logout") {
-      sessions.revoke(oldId);
+      await revokeSession(oldId);
       const response = respond({ signedOut: true });
       response.cookies.set(SESSION_COOKIE, "", {
         httpOnly: true,
@@ -144,11 +151,13 @@ export async function POST(
       return response;
     }
     if (operation === "preview" || operation === "login") {
-      limitLoginAttempts();
+      if (sharedEnabled())
+        await sharedLoginLimit(request.headers.get("x-real-ip") || "unknown");
+      else limitLoginAttempts();
       let context;
       let cookie: string | undefined;
       if (operation === "preview") {
-        if (process.env.PORTAL_ENABLE_PREVIEW !== "true")
+        if (sharedEnabled() || process.env.PORTAL_ENABLE_PREVIEW !== "true")
           throw new PortalError(
             403,
             "PREVIEW_DISABLED",
@@ -180,15 +189,15 @@ export async function POST(
           input.password,
         ));
       }
-      sessions.revoke(oldId);
-      const id = sessions.create(context, cookie);
+      await revokeSession(oldId);
+      const id = await createSession(context, cookie);
       const response = respond({ context });
       response.cookies.set(SESSION_COOKIE, id, {
         httpOnly: true,
         sameSite: "strict",
         path: "/",
         maxAge: 1800,
-        secure: false,
+        secure: sharedEnabled(),
       });
       return response;
     }
@@ -305,4 +314,25 @@ export async function POST(
   } catch (error) {
     return failure(error);
   }
+}
+
+async function withSessionRequest(
+  request: Request,
+  props: RouteProps,
+  handler: typeof handleGET,
+) {
+  try {
+    assertLocalRuntime();
+    if (request.method === "POST") assertMutationOrigin(request);
+    const id = (await cookies()).get(SESSION_COOKIE)?.value;
+    return await withSharedSession(id, () => handler(request, props));
+  } catch (error) {
+    return failure(error);
+  }
+}
+export function GET(request: Request, props: RouteProps) {
+  return withSessionRequest(request, props, handleGET);
+}
+export function POST(request: Request, props: RouteProps) {
+  return withSessionRequest(request, props, handlePOST);
 }

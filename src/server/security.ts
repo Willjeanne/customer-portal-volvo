@@ -8,11 +8,21 @@ export class PortalError extends Error {
   }
 }
 export function assertLocalRuntime(runtime = process.env.NODE_ENV): void {
-  if (runtime !== "development" && runtime !== "test") {
+  if (
+    runtime !== "development" &&
+    runtime !== "test" &&
+    !(
+      runtime === "production" &&
+      process.env.PORTAL_ORIGIN ===
+        "https://customer-portal-volvo.vercel.app" &&
+      process.env.UPSTASH_REDIS_REST_URL &&
+      process.env.UPSTASH_REDIS_REST_TOKEN
+    )
+  ) {
     throw new PortalError(
       503,
       "LOCAL_ONLY",
-      "Local validation is not enabled on this deployment.",
+      "This deployment requires the portal domain and shared session storage configuration.",
     );
   }
 }
@@ -20,12 +30,16 @@ export function assertMutationOrigin(request: Request): void {
   const expected = process.env.PORTAL_ORIGIN || "http://127.0.0.1:3000";
   if (
     request.headers.get("origin") !== expected ||
-    !["http://127.0.0.1:3000", "http://localhost:3000"].includes(expected)
+    ![
+      "http://127.0.0.1:3000",
+      "http://localhost:3000",
+      "https://customer-portal-volvo.vercel.app",
+    ].includes(expected)
   ) {
     throw new PortalError(
       403,
       "ORIGIN_DENIED",
-      "This request did not originate from the local portal.",
+      "This request did not originate from the configured portal.",
     );
   }
   if (

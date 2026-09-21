@@ -58,3 +58,34 @@ test("local authentication fails closed in production", () => {
   assert.throws(() => assertLocalRuntime("production"));
   assert.doesNotThrow(() => assertLocalRuntime("development"));
 });
+
+test("production requires configured shared storage and exact demo origin", () => {
+  const before = { ...process.env };
+  try {
+    process.env.PORTAL_ORIGIN = "https://customer-portal-volvo.vercel.app";
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    assert.throws(() => assertLocalRuntime("production"));
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "test";
+    assert.doesNotThrow(() => assertLocalRuntime("production"));
+    const req = (origin: string) =>
+      new Request("https://customer-portal-volvo.vercel.app/api/portal/login", {
+        method: "POST",
+        headers: { origin, "Content-Type": "application/json" },
+      });
+    assert.doesNotThrow(() =>
+      assertMutationOrigin(req(process.env.PORTAL_ORIGIN!)),
+    );
+    assert.throws(() => assertMutationOrigin(req("https://other.vercel.app")));
+  } finally {
+    for (const k of [
+      "PORTAL_ORIGIN",
+      "UPSTASH_REDIS_REST_URL",
+      "UPSTASH_REDIS_REST_TOKEN",
+    ]) {
+      if (before[k] === undefined) delete process.env[k];
+      else process.env[k] = before[k];
+    }
+  }
+});
