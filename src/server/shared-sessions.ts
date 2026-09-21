@@ -14,8 +14,9 @@ const validId = (id?: string): id is string =>
   !!id && /^[A-Za-z0-9_-]{43}$/.test(id);
 const key = (id: string) => `volvo:session:${id}`;
 export async function redis(command: (string | number)[]): Promise<unknown> {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
   if (!url || !token || new URL(url).protocol !== "https:")
     throw new PortalError(
       503,
