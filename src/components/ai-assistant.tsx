@@ -309,7 +309,6 @@ export function AiAssistant({
         ? `What parts do I need for ${lead.fleetNumber}'s next service?`
         : "What parts do I need for my next service?",
       "Show vehicles with maintenance due",
-      "Compare OEM vs aftermarket parts",
       "Where is my latest order?",
     ];
   }, [highlighted]);
