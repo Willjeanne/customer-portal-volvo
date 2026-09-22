@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  appendMessage,
   applyHistory,
   isDelta,
   makeContactId,
@@ -9,6 +10,7 @@ import {
   readCatalogTitle,
   readHistory,
   readMoney,
+  readEnvelope,
   readProducts,
   readSeller,
   readText,
@@ -228,4 +230,82 @@ test("a superseded socket neither updates state nor triggers a reconnect", () =>
   assert.equal(mayHandle(false, second, first), false);
   // And an intentional teardown silences even the live one.
   assert.equal(mayHandle(true, second, second), false);
+});
+
+/**
+ * The flow sometimes ships its own delivery envelope as message text. Rendered
+ * raw it filled the thread with JSON, and the same answer then arrived again.
+ */
+const ENVELOPE = JSON.stringify({
+  is_final_output: true,
+  messages_sent: [
+    {
+      text: "Here are common filter options for commercial fleets.",
+      catalog_message: {
+        send_catalog: false,
+        products: [
+          {
+            product: "Oil Filter",
+            product_retailer_info: [
+              {
+                name: "Oil Filter for Volvo Trucks VM - 20526087",
+                retailer_id: "1680",
+                price: "142.39",
+                sale_price: "128.15",
+                seller_id: "1",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+});
+
+test("a delivery envelope is unwrapped into the message it announces", () => {
+  const parts = readEnvelope(ENVELOPE);
+  assert.ok(parts);
+  assert.equal(parts.length, 1);
+  assert.equal(
+    parts[0].text,
+    "Here are common filter options for commercial fleets.",
+  );
+  assert.deepEqual(
+    parts[0].products.map((product) => product.id),
+    ["1680"],
+  );
+});
+
+test("an ordinary answer is never mistaken for an envelope", () => {
+  assert.equal(readEnvelope("Here are common filter options."), null);
+  assert.equal(readEnvelope('{"text": "not an envelope"}'), null);
+  assert.equal(readEnvelope("{ broken"), null);
+  // Recognised, but carrying nothing to show: dropped rather than rendered.
+  assert.deepEqual(readEnvelope('{"is_final_output": true}'), []);
+});
+
+test("the same answer is not appended twice", () => {
+  const first = {
+    key: "a",
+    role: "agent" as const,
+    text: "Here are common filter options.",
+    products: [],
+    at: 1,
+  };
+  const echo = { ...first, key: "b", at: 2 };
+  const thread = appendMessage([], first);
+  assert.equal(thread.length, 1);
+  assert.equal(appendMessage(thread, echo).length, 1);
+
+  // Different products with the same words are still a different answer.
+  const withProduct = {
+    ...first,
+    key: "c",
+    products: readEnvelope(ENVELOPE)![0].products,
+  };
+  assert.equal(appendMessage(thread, withProduct).length, 2);
+
+  // And the visitor may legitimately repeat themselves later in the thread.
+  const visitor = { ...first, key: "d", role: "visitor" as const };
+  assert.equal(appendMessage(thread, visitor).length, 2);
 });

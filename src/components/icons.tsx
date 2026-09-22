@@ -30,6 +30,8 @@ import {
   Handshake,
   Sparkle,
   PaperPlaneRight,
+  Plus,
+  CaretLeft,
   // <<< CLAUDE
 } from "@phosphor-icons/react";
 const icons = {
@@ -63,6 +65,8 @@ const icons = {
   Handshake,
   Sparkle,
   PaperPlaneRight,
+  Plus,
+  CaretLeft,
   // <<< CLAUDE
 };
 export function Icon({

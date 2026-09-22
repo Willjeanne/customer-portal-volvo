@@ -18,6 +18,10 @@ body {
   background: #fbfdff;
   font-size: 15px;
   line-height: 1.5;
+  /* `clip`, not `hidden`: full-bleed decoration measured in `100vw` includes
+     the scrollbar, and that overhang must not add a horizontal scrollbar.
+     `hidden` would make the body a scroll container and break sticky headers. */
+  overflow-x: clip;
 }
 button,
 input,
@@ -1724,11 +1728,70 @@ select {
 /* ── AI Assistant ─────────────────────────────────────────────────────────
    Scoped to .assistant-*; no existing rule is altered. The section fills the
    content area so the composer can sit at the bottom like the reference. */
+/* The assistant page owns the viewport exactly: with no conversation there is
+   nothing below to reach, and a page scroll only dragged the backdrop off the
+   composer. Scoped with `:has` so no other section changes its scrolling. */
+.workspace:has(.assistant) {
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.workspace:has(.assistant) .main-content {
+  /* Shared with the backdrop below, which reaches down through this padding
+     so no plain strip is left under the composer. */
+  --assistant-pad-bottom: 24px;
+  flex: 1;
+  min-height: 0;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: var(--assistant-pad-bottom);
+  display: flex;
+  flex-direction: column;
+}
 .assistant {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: calc(100vh - 150px);
+  flex: 1;
+  min-height: 0;
+}
+/* Whatever does not fit — a short window, a long fleet strip — scrolls here,
+   inside the page, so the composer and the backdrop stay put. */
+.assistant-landing {
+  min-height: 0;
+  overflow-y: auto;
+}
+/* Road backdrop: decorative only, so it rides on a pseudo-element behind the
+   content. The artwork is a full-colour illustration, so the opacity stays
+   very low — enough texture for the surface not to read as flat, not enough
+   to fight the text. It fades in from the top, where the headings sit. */
+.assistant::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: calc(-1 * var(--assistant-pad-bottom, 0px));
+  /* Full bleed. Inside the content box the illustration ended on the page
+     padding, and those two vertical edges read as a cut-out rectangle. Spanning
+     the viewport puts its own edges off screen, so the scene has no border of
+     its own. `100% auto`, not `cover`: cover scaled it to the section height
+     and cropped the road and the truck away at the sides. */
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+  z-index: 0;
+  pointer-events: none;
+  background: url("/assistant/backdrop.webp") center bottom / 100% auto
+    no-repeat;
+  opacity: 0.12;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
+}
+.assistant > * {
+  position: relative;
+  z-index: 1;
 }
 .assistant-landing {
   display: grid;
@@ -1775,11 +1838,165 @@ select {
   color: var(--muted);
   font-size: 13px;
 }
+/* Carousel: arrows and dots drive the strip, so no scrollbar is shown. */
+.assistant-carousel {
+  /* The arrows sit in the card padding, beside the strip, as in the mock. */
+  margin: 0 -8px;
+}
+.assistant-carousel-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 .assistant-vehicles {
   display: flex;
   gap: 10px;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 2px 2px 4px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.assistant-vehicles::-webkit-scrollbar {
+  display: none;
+}
+.assistant-carousel-arrow {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #eef2f8;
+  color: var(--navy);
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.assistant-carousel-arrow:hover:not(:disabled) {
+  background: var(--selected);
+  color: var(--blue);
+}
+/* Disabled, not removed: a button that unmounts shifts the card being read. */
+.assistant-carousel-arrow:disabled {
+  opacity: 0.35;
+  color: var(--muted);
+}
+.assistant-carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.assistant-carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #d4dced;
+  transition:
+    width 0.2s ease,
+    background-color 0.2s ease;
+}
+.assistant-carousel-dot.is-active {
+  width: 22px;
+  background: var(--blue);
+}
+.assistant-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+.assistant-restart {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(8, 23, 56, 0.18);
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+.assistant-restart:hover:not(:disabled) {
+  background: #0d2350;
+}
+.assistant-restart:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.assistant-restart:disabled {
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: none;
+}
+/* The waiting truck: the asset carries the wheels and the exhaust, the track
+   below carries the travel. The box is fixed so the thread does not jump when
+   the answer replaces it; the truck crosses it on a single Y, offset only in
+   X, and the edges are faded so it enters and leaves instead of popping. */
+.assistant-waiting {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: 38px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 9%,
+    #000 91%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 9%,
+    #000 91%,
+    transparent 100%
+  );
+}
+/* `left` rather than a transform: the track is fluid, so the end of the run
+   has to be the container's own width and only a percentage left offset
+   resolves against it. The box is 38px tall, so the cost is irrelevant. */
+.assistant-waiting img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 160px;
+  height: 100%;
+  object-fit: contain;
+  animation: assistant-truck-travel 5.4s linear infinite;
+}
+@keyframes assistant-truck-travel {
+  from {
+    left: -165px;
+  }
+  to {
+    left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-waiting {
+    width: 160px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .assistant-waiting img {
+    position: static;
+    animation: none;
+  }
 }
 .assistant-vehicle {
   display: flex;
@@ -1854,7 +2071,7 @@ select {
   opacity: 0.55;
   cursor: default;
 }
-.assistant-suggestion span {
+.assistant-suggestion span:not(.assistant-suggestion-icon) {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -1957,40 +2174,6 @@ a.assistant-product:hover {
 .assistant-product-text small {
   color: var(--muted);
   font-size: 12px;
-}
-.assistant-typing {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-.assistant-typing span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--muted);
-  animation: assistant-blink 1.2s infinite ease-in-out;
-}
-.assistant-typing span:nth-child(2) {
-  animation-delay: 0.18s;
-}
-.assistant-typing span:nth-child(3) {
-  animation-delay: 0.36s;
-}
-@keyframes assistant-blink {
-  0%,
-  80%,
-  100% {
-    opacity: 0.25;
-  }
-  40% {
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .assistant-typing span {
-    animation: none;
-    opacity: 0.6;
-  }
 }
 .assistant-composer {
   display: flex;

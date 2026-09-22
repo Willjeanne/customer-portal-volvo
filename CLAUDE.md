@@ -180,3 +180,22 @@ Redis Marketplace connecté sous KV_REST_API_URL / KV_REST_API_TOKEN ; aliases p
 ## 22 septembre — scénarios flotte pour la démo
 
 Truck 147 : alerte usure → Brakes/FH13 Classic/référence 3095196. Truck 203 : nouvelle alerte illustrative entretien filtre à air → Filters/FM13 New/21337557MOBIT. CTA Find suggested parts sur panneau et fiche véhicule ; bandeau de contexte et retour à toutes les pièces. Catalogue réel, fixtures et absence de certification VIN explicites. Script dans docs/DEMO-VOLVO.md. Recette navigateur William attendue ; aucune écriture métier.
+
+
+## 22 septembre — onglet AI Assistant et canal WWC
+
+Nouvel onglet `ai-assistant` dans la navigation (entre Support / Dealer et My Profile), avec écran d'accueil et fil de conversation. Le socket WebChat est ouvert depuis le navigateur ; aucun cookie de session ne part vers Weni.
+
+Protocole isolé dans `src/domain/wwc.ts`, sans DOM ni réseau, donc testable : 14 tests dans `tests/wwc.test.ts`. Règles du guide `references/GUIA-WEBSOCKET-Y-CATALOGO.md` tenues explicitement — `catalog_message` lu par `retailer_id` (et non `product_retailer_id`), fusion des quatre sources de produits avec déduplication, historique `direction: "in"` = agent et trié du plus ancien au plus récent, horodatage en secondes promu en millisecondes, historique plus court jamais substitué au fil local. Le troisième segment du `retailer_id` est une trade policy : il est analysé puis volontairement écarté, jamais transmis comme `?sc=`.
+
+Cycle de vie : enregistrement confirmé par le premier frame non-`forbidden` (y compris un ping précoce, marqué prêt avant le pong), `forbidden` terminal sans reconnexion, reconnexion avec backoff jusqu'à 15 s en réutilisant le même `from` conservé en `sessionStorage`. Un socket remplacé ne peut plus écrire dans l'état ni déclencher de reconnexion.
+
+Paramètres du canal relevés dans le bootstrap du widget natif (`.../apptypes/wwc/bb4a6378-.../script.js` — cet identifiant est celui de l'**intégration**, distinct de celui du **canal**) : `wss://websocket.weni.ai/ws`, `https://flows.weni.ai`, canal `6d7f6ee7-884a-4070-b9ad-8f9212991965`. Variables `NEXT_PUBLIC_WENI_*` dans `.env.example`. Handshake vérifié en réel : `register` accepté, `ready_for_message` reçu, y compris après remontage avec le même `from`.
+
+L'accueil n'affiche que des données existantes : véhicules, compteurs et suggestions viennent de `domain/fleet.ts`, donc les fixtures de démonstration. Le salut utilise `context.user.name`, qui est l'identifiant de connexion et non un prénom (`server/vtex.ts:173`) ; aucun e-mail n'est exposé par la session. Ni micro ni pièce jointe : le canal les désactive (`showVoiceRecordingButton`, `showCameraButton`).
+
+Contrôles : typecheck, lint, build réussis ; 71 tests, 70 réussis, 1 sauté (scénario HTTP). Rendu vérifié en HTTP sous session preview.
+
+**Reste ouvert.** Allowlist d'origines à déclarer sur la plateforme pour `http://127.0.0.1:3000` et `https://customer-portal-volvo.vercel.app`, sinon le canal renvoie `forbidden`. Aucun message n'a été envoyé à l'agent : le parcours complet (réponse, catalogue) reste à recetter. Les cartes produit n'ont pas d'ajout au panier, alors que le widget natif l'expose (`addToCart: true`) — cela suppose une écriture dans le brouillon, donc le pont de jeton ci-dessous.
+
+**Pont de jeton — conçu, non réalisé.** Les tools Weni tourneront sur l'infrastructure Weni et ne peuvent pas s'authentifier auprès du portail aujourd'hui : `requireSession()` ne lit la session que dans le cookie (`server/session.ts`), et `assertMutationOrigin` refuse toute requête sans l'`Origin` exact du portail (`server/security.ts`). Le cookie est `HttpOnly` et `SameSite=strict` : le navigateur ne peut ni le lire ni le transmettre. La voie retenue est un jeton opaque de courte durée, émis par le portail pour la session en cours, portée lecture seule, accompagné d'un secret partagé côté Weni. Sans lui, aucune tool ne peut identifier l'acheteur ni hériter de ses droits VTEX.

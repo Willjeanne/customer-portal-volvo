@@ -179,6 +179,66 @@ export function readCatalogTitle(body: unknown): string | null {
   return groups.length ? readString(groups[0], "product") : null;
 }
 
+/**
+ * Some flows leak their own delivery envelope as the text of a message:
+ * `{"is_final_output": true, "messages_sent": [{ text, catalog_message }]}`.
+ * Rendered as-is it fills the thread with raw JSON, and the same content then
+ * arrives again as proper frames. The envelope is recognised by those two keys
+ * only — an ordinary answer that merely starts with a brace is left alone —
+ * and unwrapped into the parts it announces, so nothing is lost if the real
+ * frames never follow. An empty array means it carried nothing to show.
+ */
+export function readEnvelope(
+  text: string,
+): { text: string; products: ChatProduct[] }[] | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{")) return null;
+
+  let value: unknown;
+  try {
+    value = JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const record = value as Record<string, unknown>;
+  if (!("messages_sent" in record) && !("is_final_output" in record))
+    return null;
+
+  return readArray(record, "messages_sent")
+    .map((entry) => ({ text: readText(entry), products: readProducts(entry) }))
+    .filter((part) => part.text || part.products.length > 0);
+}
+
+/** Same author, same words, same products: the second copy adds nothing. */
+export function sameContent(
+  a: Pick<ChatMessage, "role" | "text" | "products">,
+  b: Pick<ChatMessage, "role" | "text" | "products">,
+): boolean {
+  return (
+    a.role === b.role &&
+    a.text === b.text &&
+    a.products.length === b.products.length &&
+    a.products.every((product, index) => product.id === b.products[index].id)
+  );
+}
+
+/**
+ * Appends unless one of the last few messages already says exactly the same
+ * thing. An unwrapped envelope is normally followed by the real frames, and
+ * the visitor must not read the answer twice.
+ */
+export function appendMessage(
+  current: ChatMessage[],
+  message: ChatMessage,
+  window = 4,
+): ChatMessage[] {
+  const recent = current.slice(-window);
+  if (recent.some((existing) => sameContent(existing, message))) return current;
+  return [...current, message];
+}
+
 /** Timestamps arrive in seconds or milliseconds depending on the frame. */
 export function normaliseTimestamp(value: unknown, fallback: number): number {
   const parsed = typeof value === "string" ? Number(value) : value;

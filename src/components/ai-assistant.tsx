@@ -20,11 +20,13 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import type { BuyerContext } from "@/domain/portal";
 import {
+  appendMessage,
   applyHistory,
   frameType,
   isDelta,
   makeContactId,
   parseFrame,
+  readEnvelope,
   readHistory,
   readProducts,
   readText,
@@ -49,6 +51,21 @@ const MAX_MESSAGE_LENGTH = 800;
 /** A reconnect never fires faster than this, and backs off up to the cap. */
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 15_000;
+
+/**
+ * How long the waiting truck may run without a single frame. The wait survives
+ * interim messages, so a flow that never sends `typing_stop` would otherwise
+ * leave it running for good. Any frame re-arms it.
+ */
+const TYPING_TIMEOUT_MS = 45_000;
+
+/**
+ * Grace before the wait actually ends. Flows announce their progress as normal
+ * messages and stop typing between each one, so ending on the first signal made
+ * the truck blink out at every step. Anything arriving inside this window keeps
+ * it running; only real silence lets it go.
+ */
+const TYPING_SETTLE_MS = 2_500;
 
 function money(value: number | null): string | null {
   return value === null
@@ -134,6 +151,106 @@ function VehicleCard({ vehicle }: { vehicle: Vehicle }): React.JSX.Element {
   );
 }
 
+/**
+ * Horizontal vehicle strip driven by explicit arrows rather than a scrollbar.
+ * The native scrollbar is hidden; the arrows page by the visible width and the
+ * dots below show where the strip is, as in the approved mock.
+ */
+function VehicleCarousel({
+  vehicles,
+}: {
+  vehicles: Vehicle[];
+}): React.JSX.Element {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(false);
+  const [pages, setPages] = useState(1);
+  const [current, setCurrent] = useState(0);
+
+  const measure = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    // Two pixels of slack: browser zoom leaves scrollLeft fractional, so it
+    // never lands exactly on the maximum.
+    setCanPrev(track.scrollLeft > 2);
+    setCanNext(track.scrollLeft + track.clientWidth < track.scrollWidth - 2);
+    const width = track.clientWidth || 1;
+    const total = Math.max(1, Math.ceil(track.scrollWidth / width));
+    setPages(total);
+    setCurrent(Math.min(total - 1, Math.round(track.scrollLeft / width)));
+  }, []);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(track);
+    Array.from(track.children).forEach((child) => observer.observe(child));
+    return () => observer.disconnect();
+  }, [measure, vehicles]);
+
+  const scrollToPage = useCallback((index: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.scrollTo({ left: index * track.clientWidth, behavior: "smooth" });
+  }, []);
+
+  const page = useCallback((direction: 1 | -1) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.scrollBy({
+      left: direction * track.clientWidth * 0.8,
+      behavior: "smooth",
+    });
+  }, []);
+
+  return (
+    <div className="assistant-carousel">
+      <div className="assistant-carousel-track">
+        <button
+          type="button"
+          className="assistant-carousel-arrow is-prev"
+          onClick={() => page(-1)}
+          disabled={!canPrev}
+          aria-label="Show previous vehicles"
+        >
+          <Icon name="CaretLeft" size={16} />
+        </button>
+        <div className="assistant-vehicles" ref={trackRef} onScroll={measure}>
+          {vehicles.map((vehicle) => (
+            <VehicleCard key={vehicle.id} vehicle={vehicle} />
+          ))}
+        </div>
+        <button
+          type="button"
+          className="assistant-carousel-arrow is-next"
+          onClick={() => page(1)}
+          disabled={!canNext}
+          aria-label="Show next vehicles"
+        >
+          <Icon name="CaretRight" size={16} />
+        </button>
+      </div>
+      {pages > 1 ? (
+        <div className="assistant-carousel-dots">
+          {Array.from({ length: pages }, (_, index) => (
+            <button
+              key={index}
+              type="button"
+              className={`assistant-carousel-dot${index === current ? " is-active" : ""}`}
+              onClick={() => scrollToPage(index)}
+              aria-label={`Show vehicles, page ${index + 1}`}
+              aria-current={index === current}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AiAssistant({
   context,
 }: {
@@ -164,6 +281,8 @@ export function AiAssistant({
   const firstSendRef = useRef(true);
   /** Reconnect reaches the latest `connect` through this ref, not itself. */
   const connectRef = useRef<() => void>(() => {});
+  /** Pending end of the wait, cancelled by the next frame. */
+  const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const socketUrl = process.env.NEXT_PUBLIC_WENI_SOCKET_URL || "";
   const channelUuid = process.env.NEXT_PUBLIC_WENI_CHANNEL_UUID || "";
@@ -179,7 +298,7 @@ export function AiAssistant({
    * names a vehicle or a symptom that the data does not contain.
    */
   const highlighted = useMemo(() => fleet.filter((v) => v.alert).slice(0, 2), []);
-  const showcase = useMemo(() => fleet.slice(0, 4), []);
+  const showcase = useMemo(() => fleet.slice(0, 8), []);
 
   /** Phrased against vehicles that exist, so no chip invents a reference. */
   const popular = useMemo(() => {
@@ -193,6 +312,60 @@ export function AiAssistant({
       "Where is my latest order?",
     ];
   }, [highlighted]);
+
+  /**
+   * The wait is a single state with a settle delay, not a switch: every frame
+   * keeps the truck running, and an end signal only schedules its stop, so a
+   * progress message and the truck are on screen at the same time.
+   */
+  const startWaiting = useCallback(() => {
+    if (settleRef.current) {
+      clearTimeout(settleRef.current);
+      settleRef.current = null;
+    }
+    setTyping(true);
+  }, []);
+
+  const endWaiting = useCallback(() => {
+    if (settleRef.current) {
+      clearTimeout(settleRef.current);
+      settleRef.current = null;
+    }
+    setTyping(false);
+  }, []);
+
+  const settleWaiting = useCallback(() => {
+    if (settleRef.current) clearTimeout(settleRef.current);
+    settleRef.current = setTimeout(() => {
+      settleRef.current = null;
+      setTyping(false);
+    }, TYPING_SETTLE_MS);
+  }, []);
+
+  /**
+   * One agent turn as it should be read. An envelope is expanded into the
+   * parts it announces; the duplicate guard then drops whichever copy arrives
+   * second, envelope or real frame.
+   */
+  const pushAgent = useCallback((text: string, products: ChatProduct[]) => {
+    const parts = text ? readEnvelope(text) : null;
+    const turns = parts ?? [{ text, products }];
+    setMessages((current) =>
+      turns.reduce(
+        (thread, turn) =>
+          turn.text || turn.products.length
+            ? appendMessage(thread, {
+                key: `agent-${Date.now()}-${Math.random()}`,
+                role: "agent",
+                text: turn.text,
+                products: turn.products,
+                at: Date.now(),
+              })
+            : thread,
+        current,
+      ),
+    );
+  }, []);
 
   const push = useCallback((message: ChatMessage) => {
     setMessages((current) => [...current, message]);
@@ -292,16 +465,17 @@ export function AiAssistant({
         return;
       }
 
-      if (type === "typing_start") return setTyping(true);
-      if (type === "typing_stop") return setTyping(false);
+      if (type === "typing_start") return startWaiting();
+      if (type === "typing_stop") return settleWaiting();
 
       if (type === "stream_start") {
         setStreamed("");
-        setTyping(true);
+        startWaiting();
         return;
       }
 
       if (isDelta(frame)) {
+        startWaiting();
         setStreamed((current) => current + frame.v);
         return;
       }
@@ -309,15 +483,8 @@ export function AiAssistant({
       if (type === "stream_end") {
         const text = typeof frame.content === "string" ? frame.content : "";
         setStreamed("");
-        setTyping(false);
-        if (text)
-          push({
-            key: `agent-${Date.now()}-${Math.random()}`,
-            role: "agent",
-            text,
-            products: [],
-            at: Date.now(),
-          });
+        settleWaiting();
+        if (text) pushAgent(text, []);
         return;
       }
 
@@ -326,15 +493,12 @@ export function AiAssistant({
         const text = readText(body);
         const products = readProducts(body);
         setStreamed("");
-        setTyping(false);
-        if (text || products.length)
-          push({
-            key: `agent-${Date.now()}-${Math.random()}`,
-            role: "agent",
-            text,
-            products,
-            at: Date.now(),
-          });
+        // Not an immediate stop. An agent that answers "one moment" and keeps
+        // working sends that as an ordinary message; ending the wait on it
+        // would claim the turn is over. The settle window below keeps the
+        // truck running, and the message simply lands above it.
+        settleWaiting();
+        if (text || products.length) pushAgent(text, products);
       }
     });
 
@@ -342,7 +506,7 @@ export function AiAssistant({
       // Ignore a superseded socket: only the live one may drive a reconnect.
       if (closingRef.current || socketRef.current !== socket) return;
       setStatus("closed");
-      setTyping(false);
+      endWaiting();
       // Backoff, and only when the close was neither forbidden nor our own.
       attemptsRef.current += 1;
       const delay = Math.min(
@@ -351,7 +515,16 @@ export function AiAssistant({
       );
       retryRef.current = setTimeout(() => connectRef.current(), delay);
     });
-  }, [channelUuid, configured, flowsOrigin, push, socketUrl]);
+  }, [
+    channelUuid,
+    configured,
+    flowsOrigin,
+    endWaiting,
+    pushAgent,
+    settleWaiting,
+    socketUrl,
+    startWaiting,
+  ]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -366,9 +539,19 @@ export function AiAssistant({
     return () => {
       closingRef.current = true;
       if (retryRef.current) clearTimeout(retryRef.current);
+      if (settleRef.current) clearTimeout(settleRef.current);
       socketRef.current?.close();
     };
   }, [connect]);
+
+  useEffect(() => {
+    // The waiting truck weighs ~335 KB. Fetched on mount, it is cached before
+    // the first question, so the wait never starts on an empty frame.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const image = new window.Image();
+    image.decoding = "async";
+    image.src = "/assistant/truck-loader.webp";
+  }, []);
 
   useEffect(() => {
     threadRef.current?.scrollTo({
@@ -376,6 +559,14 @@ export function AiAssistant({
       behavior: "smooth",
     });
   }, [messages, streamed, typing]);
+
+  // Re-armed by every new message or delta: the wait lasts as long as the
+  // agent keeps producing, and ends by itself when it goes quiet.
+  useEffect(() => {
+    if (!typing) return;
+    const timer = setTimeout(endWaiting, TYPING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [typing, messages, streamed, endWaiting]);
 
   const send = useCallback(
     (text: string) => {
@@ -406,15 +597,60 @@ export function AiAssistant({
         at: Date.now(),
       });
       setDraft("");
-      setTyping(true);
+      startWaiting();
     },
-    [contactFields, push],
+    [contactFields, push, startWaiting],
   );
+
+  /**
+   * Restart: the thread is dropped locally and a new contact id is drawn, so
+   * the channel opens a fresh conversation instead of replaying the history of
+   * the previous one. The old socket is detached before closing, so its close
+   * handler cannot schedule a reconnect that would race this one.
+   */
+  const restart = useCallback(() => {
+    const previous = socketRef.current;
+    socketRef.current = null;
+    if (retryRef.current) {
+      clearTimeout(retryRef.current);
+      retryRef.current = null;
+    }
+    previous?.close();
+
+    contactRef.current = "";
+    try {
+      window.sessionStorage.removeItem(CONTACT_STORAGE_KEY);
+    } catch {
+      // A blocked storage only means the next reload starts a new thread too.
+    }
+
+    registeredRef.current = false;
+    firstSendRef.current = true;
+    attemptsRef.current = 0;
+    setMessages([]);
+    setStreamed("");
+    endWaiting();
+    setDraft("");
+    setStatus(configured ? "connecting" : "idle");
+    closingRef.current = false;
+    connectRef.current();
+  }, [configured, endWaiting]);
 
   const live = status === "ready";
 
   return (
     <section className="assistant" aria-label="AI Assistant">
+      <div className="assistant-actions">
+        <button
+          type="button"
+          className="assistant-restart"
+          onClick={restart}
+        >
+          <Icon name="Plus" size={16} />
+          New conversation
+        </button>
+      </div>
+
       {!started ? (
         <div className="assistant-landing">
           <div className="assistant-intro">
@@ -447,11 +683,7 @@ export function AiAssistant({
                 <Icon name="ArrowRight" size={16} />
               </Link>
             </header>
-            <div className="assistant-vehicles">
-              {showcase.map((vehicle) => (
-                <VehicleCard key={vehicle.id} vehicle={vehicle} />
-              ))}
-            </div>
+            <VehicleCarousel vehicles={showcase} />
           </aside>
 
           <div className="assistant-prompts">
@@ -544,13 +776,32 @@ export function AiAssistant({
               </div>
             </div>
           ) : null}
-          {typing && !streamed ? (
+          {typing ? (
             <div className="assistant-turn is-agent">
-              <div className="assistant-bubble assistant-typing">
-                <span />
-                <span />
-                <span />
-              </div>
+              {/*
+                The wait is a Volvo truck on the move, the same asset the
+                FastStore copilot uses (`Copilot/assets/truck-loader.webp`):
+                an animated WebP with transparency, so it loops on its own and
+                plays in every browser. A still frame is served under
+                prefers-reduced-motion; the spoken status lives in the label.
+              */}
+              <picture className="assistant-waiting">
+                <source
+                  media="(prefers-reduced-motion: reduce)"
+                  srcSet="/assistant/truck-loader-still.webp"
+                />
+                <img
+                  src="/assistant/truck-loader.webp"
+                  width={360}
+                  height={84}
+                  alt=""
+                  aria-hidden="true"
+                  decoding="async"
+                />
+              </picture>
+              <span className="visually-hidden" aria-live="polite">
+                The assistant is preparing an answer
+              </span>
             </div>
           ) : null}
         </div>
@@ -589,17 +840,24 @@ export function AiAssistant({
         </button>
       </form>
 
-      <p className="assistant-disclaimer">
-        {!configured
-          ? "The assistant channel is not configured for this environment."
-          : status === "forbidden"
-            ? "This portal address is not allowed on the assistant channel."
-            : status === "closed"
-              ? "Connection lost. Reconnecting…"
-              : status === "connecting"
-                ? "Connecting to the assistant…"
-                : "Answers may be incomplete. Fleet data is demonstration data and part compatibility is not a certified Volvo fitment source — confirm before ordering."}
-      </p>
+      {/*
+        Connection state only. The standing data disclaimer was dropped on
+        request; nothing is rendered once the channel is live, so the line
+        never takes space when it has nothing to say.
+      */}
+      {!configured ? (
+        <p className="assistant-disclaimer">
+          The assistant channel is not configured for this environment.
+        </p>
+      ) : status === "forbidden" ? (
+        <p className="assistant-disclaimer">
+          This portal address is not allowed on the assistant channel.
+        </p>
+      ) : status === "closed" ? (
+        <p className="assistant-disclaimer">Connection lost. Reconnecting…</p>
+      ) : status === "connecting" ? (
+        <p className="assistant-disclaimer">Connecting to the assistant…</p>
+      ) : null}
     </section>
   );
 }

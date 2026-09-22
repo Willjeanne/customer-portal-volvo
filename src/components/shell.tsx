@@ -251,15 +251,6 @@ export function Shell({
             </span>
           </Link>
         </header>
-        <div className="mode-banner">
-          <Icon name={preview ? "Info" : "ShieldCheck"} size={17} />
-          <span>
-            {preview
-              ? "Local preview · Sample data and permissions · No VTEX changes"
-              : "VTEX session · Account context connected · Other features are not integrated yet"}
-          </span>
-          <span className="currency">USA / USD</span>
-        </div>
         {error && (
           <p role="alert" className="error-message global-error">
             {error}
