@@ -164,8 +164,27 @@ export function readProducts(body: unknown): ChatProduct[] {
   return products;
 }
 
+/**
+ * Some flows escape their text twice: the `interactive` message that follows a
+ * catalogue answer carries a literal backslash-n and backslash-quote where the
+ * envelope of the same turn carries a real line break and a real quote. Decoded
+ * here, so the text reads correctly and matches its twin for de-duplication.
+ */
+export function unescapeText(text: string): string {
+  if (!/\\[n"t\\]/.test(text)) return text;
+  // A JSON object keeps its escapes: they are valid there, and a leaked
+  // envelope must still parse in `readEnvelope`.
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) return text;
+  return text.replace(/\\([n"t\\])/g, (_, code: string) =>
+    code === "n" ? "\n" : code === "t" ? "\t" : code,
+  );
+}
+
 export function readText(body: unknown): string {
-  return readString(body, "text") || readString(body, "caption") || "";
+  return unescapeText(
+    readString(body, "text") || readString(body, "caption") || "",
+  );
 }
 
 /** Optional group heading, used so a catalogue block does not repeat its text. */
@@ -211,6 +230,11 @@ export function readEnvelope(
     .filter((part) => part.text || part.products.length > 0);
 }
 
+/** Spacing is not content: two copies may differ only in their line breaks. */
+function comparable(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 /** Same author, same words, same products: the second copy adds nothing. */
 export function sameContent(
   a: Pick<ChatMessage, "role" | "text" | "products">,
@@ -218,7 +242,7 @@ export function sameContent(
 ): boolean {
   return (
     a.role === b.role &&
-    a.text === b.text &&
+    comparable(a.text) === comparable(b.text) &&
     a.products.length === b.products.length &&
     a.products.every((product, index) => product.id === b.products[index].id)
   );

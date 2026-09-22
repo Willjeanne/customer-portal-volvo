@@ -99,7 +99,8 @@ function ProductCard({ product }: { product: ChatProduct }): React.JSX.Element {
             {listed ? <s>{listed}</s> : null}
           </span>
         ) : null}
-        <small>SKU {product.id}</small>
+        {/* The id may carry `#seller#tradePolicy`; only the SKU is for reading. */}
+        <small>SKU {product.id.split("#")[0]}</small>
       </span>
     </>
   );

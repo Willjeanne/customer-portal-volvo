@@ -15,6 +15,7 @@ import {
   readSeller,
   readText,
   registerCallback,
+  unescapeText,
 } from "../src/domain/wwc";
 
 test("register callback follows the documented shape", () => {
@@ -308,4 +309,79 @@ test("the same answer is not appended twice", () => {
   // And the visitor may legitimately repeat themselves later in the thread.
   const visitor = { ...first, key: "d", role: "visitor" as const };
   assert.equal(appendMessage(thread, visitor).length, 2);
+});
+
+/**
+ * Captured from the live channel: a catalogue answer arrives twice in one turn,
+ * first as the envelope in `stream_end.content`, then as an `interactive`
+ * message whose text is escaped a second time (literal \" and \n).
+ */
+const TWIN_TEXT =
+  'Suggested from Truck 147\'s maintenance alert "Brake wear detected" (2026-09-17), system Brakes.\nPrice shown is the public trade-policy price, not your contract price.';
+const TWIN_ITEM = {
+  name: "Brake Shoes Set for Volvo Trucks FH13 Classic, FH13 New - 3095196",
+  price: "1516.39",
+  sale_price: "1516.39",
+  seller_id: "1",
+};
+const STREAM_END_CONTENT = JSON.stringify({
+  is_final_output: true,
+  messages_sent: [
+    {
+      text: TWIN_TEXT,
+      catalog_message: {
+        send_catalog: false,
+        products: [
+          {
+            product: "Truck 147 alert part",
+            product_retailer_info: [{ ...TWIN_ITEM, retailer_id: "1437#1" }],
+          },
+        ],
+      },
+    },
+  ],
+});
+const INTERACTIVE_BODY = {
+  type: "interactive",
+  text: TWIN_TEXT.replace(/"/g, '\\"').replace(/\n/g, "\\n"),
+  interactive: {
+    type: "product_list",
+    action: {
+      sections: [
+        {
+          title: "Truck 147 alert part",
+          product_items: [{ ...TWIN_ITEM, product_retailer_id: "1437#1" }],
+        },
+      ],
+    },
+  },
+};
+
+test("double-escaped text is decoded, JSON is left intact", () => {
+  assert.equal(unescapeText('say \\"hi\\"\\nbye'), 'say "hi"\nbye');
+  assert.equal(unescapeText("plain text"), "plain text");
+  // An envelope keeps its escapes, or it would no longer parse.
+  assert.equal(unescapeText(STREAM_END_CONTENT), STREAM_END_CONTENT);
+  assert.ok(readEnvelope(unescapeText(STREAM_END_CONTENT)));
+});
+
+test("the envelope and its escaped interactive twin render once", () => {
+  const [part] = readEnvelope(STREAM_END_CONTENT)!;
+  const fromEnvelope = {
+    key: "envelope",
+    role: "agent" as const,
+    text: part.text,
+    products: part.products,
+    at: 1,
+  };
+  const fromInteractive = {
+    key: "interactive",
+    role: "agent" as const,
+    text: readText(INTERACTIVE_BODY),
+    products: readProducts(INTERACTIVE_BODY),
+    at: 2,
+  };
+  assert.equal(fromInteractive.text, TWIN_TEXT);
+  const thread = appendMessage(appendMessage([], fromEnvelope), fromInteractive);
+  assert.equal(thread.length, 1);
 });
