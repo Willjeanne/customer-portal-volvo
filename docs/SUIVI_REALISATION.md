@@ -203,3 +203,13 @@ Projet customer-portal-volvo lié au dossier. Stockage partagé Upstash Redis RE
 Déploiement fonctionnel en attente de configuration stockage : UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN absents du projet Vercel inspecté. Connexion bloquée tant qu’ils manquent. Connecter une base Upstash Redis au projet en Production, configurer PORTAL_ORIGIN=https://customer-portal-volvo.vercel.app, PORTAL_ENABLE_VTEX_LOGIN=true et PORTAL_ENABLE_PREVIEW=false, puis redéployer. Aucune base temporaire ou facturable créée. Recette réelle production (login/navigation/logout) à faire après raccordement.
 
 Tests ajoutés : persistance entre requêtes, exclusion concurrente, sauvegarde après erreur, révocation, configuration production et refus origine étrangère. Documentation technique REST de référence : https://upstash.com/docs/redis/features/restapi .
+
+
+## 22 septembre — connexion Vercel validée
+
+Redis Marketplace connecté sous KV_REST_API_URL / KV_REST_API_TOKEN ; aliases pris en charge par 243fe63. Paramètres non secrets Production recréés : origine HTTPS exacte, VTEX login true, preview false. Redéploiement CU3dHmnvzGEU3vkZtSYu9UtZ4Z6e prêt et alias public actif. Test HTTP réel WanderGarage : login 200, contexte 200, home 200, organization 200, logout 200 puis ancienne session refusée 401. Aucun achat, création utilisateur ou centre de coût effectué. La recette des fonctions métier reste inchangée.
+
+
+## 22 septembre — scénarios flotte pour la démo
+
+Truck 147 : alerte usure → Brakes/FH13 Classic/référence 3095196. Truck 203 : nouvelle alerte illustrative entretien filtre à air → Filters/FM13 New/21337557MOBIT. CTA Find suggested parts sur panneau et fiche véhicule ; bandeau de contexte et retour à toutes les pièces. Catalogue réel, fixtures et absence de certification VIN explicites. Script dans docs/DEMO-VOLVO.md. Recette navigateur William attendue ; aucune écriture métier.

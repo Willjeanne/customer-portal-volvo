@@ -37,7 +37,12 @@ export interface Vehicle {
   status: VehicleStatus;
   contract: string | null;
   latestActivity: { label: string; date: string };
-  alert: { title: string; detail: string; date: string } | null;
+  alert: {
+    title: string;
+    detail: string;
+    date: string;
+    parts?: { reference: string; system: string };
+  } | null;
 }
 
 /**
@@ -106,7 +111,9 @@ export const fleet: readonly Vehicle[] = [
     latestActivity: { label: "Brake wear detected", date: "2026-09-17" },
     alert: {
       title: "Brake wear detected",
-      detail: "Intervention recommended within 2,000 km.",
+      detail:
+        "Illustrative wear alert — inspect brake shoes before replacement.",
+      parts: { reference: "3095196", system: "brakes" },
       date: "2026-09-17",
     },
   },
@@ -122,8 +129,14 @@ export const fleet: readonly Vehicle[] = [
     site: "Dallas Workshop",
     status: "Maintenance Due",
     contract: "Parts Assure",
-    latestActivity: { label: "Service due in 4,000 km", date: "2026-09-14" },
-    alert: null,
+    latestActivity: { label: "Air filter service due", date: "2026-09-14" },
+    alert: {
+      title: "Air filter service due",
+      detail:
+        "Illustrative maintenance alert — inspect the air filter before replacement.",
+      date: "2026-09-14",
+      parts: { reference: "21337557MOBIT", system: "filters" },
+    },
   },
   {
     id: "truck-332",
@@ -426,3 +439,12 @@ export const vehicleSelection = z
     (value) => value === "" || fleet.some((vehicle) => vehicle.id === value),
     { message: "This vehicle is not part of the fleet." },
   );
+
+export function vehicleAlertPartsLink(vehicle: Vehicle): string {
+  const params = new URLSearchParams({ q: vehicle.vin });
+  if (vehicle.alert?.parts) {
+    params.set("issue", "alert");
+    params.append("f", `category-2:${vehicle.alert.parts.system}`);
+  }
+  return `/parts?${params}`;
+}

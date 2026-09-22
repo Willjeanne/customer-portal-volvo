@@ -61,9 +61,9 @@ test("counters and filter sources are derived, never hardcoded", () => {
     counts.critical,
     fleet.filter((vehicle) => vehicle.status === "Vehicle Off Road").length,
   );
-  // Un seul véhicule porte une alerte, et c'est celui de l'accueil.
+  // Deux alertes illustrent les parcours freinage et filtration.
   const alerted = fleet.filter((vehicle) => vehicle.alert);
-  assert.equal(alerted.length, 1);
+  assert.equal(alerted.length, 2);
   assert.equal(alerted[0].id, "truck-147");
   assert.ok(fleetModels().length > 1);
   assert.deepEqual(fleetContracts(), ["Gold Contract", "Parts Assure"]);

@@ -1,3 +1,4 @@
+import { vehicleAlertPartsLink } from "@/domain/fleet";
 /**
  * ⚠️  ÉCRIT PAR CLAUDE — lot « flotte de démonstration », 20/09/2026.
  *     À RELIRE AVANT INTÉGRATION. Voir docs/HANDOFF-FLOTTE.md.
@@ -111,6 +112,12 @@ export default async function VehiclePage({
               <div>
                 <h3>{vehicle.alert.title}</h3>
                 <p>{vehicle.alert.detail}</p>
+                <Link
+                  className="button secondary"
+                  href={vehicleAlertPartsLink(vehicle)}
+                >
+                  Find suggested parts
+                </Link>
                 <small>Detected {formatActivityDate(vehicle.alert.date)}</small>
               </div>
             </div>

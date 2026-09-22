@@ -32,11 +32,13 @@ function sameFacet(a: SelectedFacet, key: string, value: string) {
 
 export async function FindParts({
   query,
+  issue,
   facets,
   page,
 }: {
   session: PortalSession;
   query: string;
+  issue?: string;
   facets: SelectedFacet[];
   page: number;
 }) {
@@ -50,7 +52,8 @@ export async function FindParts({
   const activeFacets = matched
     ? withVehicleModel(matched.application, urlFacets)
     : facets;
-  const activeQuery = matched ? "" : query;
+  const alertParts = issue === "alert" ? matched?.alert?.parts : undefined;
+  const activeQuery = matched ? alertParts?.reference || "" : query;
   // L'appel lui-même est borné : le moteur refuse au-delà de la page 50 et sa
   // réponse sort alors du contrat (revue, point 4).
   const safePage = clampPartsPage(page);
@@ -66,6 +69,7 @@ export async function FindParts({
   function link(next: SelectedFacet[], nextPage = 1, keepVehicle = true) {
     const params = new URLSearchParams();
     if (query && keepVehicle) params.set("q", query);
+    if (alertParts && keepVehicle) params.set("issue", "alert");
     for (const facet of next) params.append("f", `${facet.key}:${facet.value}`);
     if (nextPage > 1) params.set("page", String(nextPage));
     const search = params.toString();
@@ -123,6 +127,24 @@ export async function FindParts({
           )}
         </Form>
 
+        {matched && alertParts && (
+          <div className="detail-panel">
+            <h2>
+              Parts for {matched.fleetNumber} · {matched.alert?.title}
+            </h2>
+            <p>
+              Suggested reference: <strong>{alertParts.reference}</strong>.
+              Illustrative maintenance scenario; confirm fitment and diagnosis
+              before replacement.
+            </p>
+            <Link
+              className="button secondary"
+              href={`/parts?${new URLSearchParams({ q: matched.vin })}`}
+            >
+              View all vehicle parts
+            </Link>
+          </div>
+        )}
         {matched ? (
           <p className="parts-matched">
             <Icon name="Truck" size={18} />

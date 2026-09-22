@@ -31,6 +31,7 @@ export default async function Page({
     status?: string;
     label?: string;
     unitPath?: string;
+    issue?: string;
     // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
     q?: string;
     f?: string | string[];
@@ -94,6 +95,7 @@ export default async function Page({
           {/* >>> CLAUDE — lot find parts, 20/09/2026 — à relire */}
           {section === "parts" ? (
             <FindParts
+              issue={typeof query.issue === "string" ? query.issue : undefined}
               session={session}
               query={typeof query.q === "string" ? query.q.slice(0, 120) : ""}
               facets={parseSelectedFacets(query.f)}

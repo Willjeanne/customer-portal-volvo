@@ -4,6 +4,7 @@
  *     Fixtures et compatibilité approximative assumées : démonstration.
  */
 "use client";
+import { vehicleAlertPartsLink } from "@/domain/fleet";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -108,9 +109,12 @@ export function FleetDetailPanel({
           View vehicle
           <Icon name="ArrowRight" size={18} />
         </Link>
-        <Link className="button secondary" href={`/fleet/${vehicle.id}#parts`}>
+        <Link
+          className="button secondary"
+          href={vehicleAlertPartsLink(vehicle)}
+        >
           <Icon name="ShoppingCart" size={18} />
-          Find compatible parts
+          Find suggested parts
         </Link>
         <Link className="button secondary" href="/orders">
           <Icon name="FileText" size={18} />
