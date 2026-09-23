@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SessionStore } from "../src/server/session-store";
+import { SessionStore, SESSION_TTL_SECONDS } from "../src/server/session-store";
 import { makePreviewContext } from "../src/domain/fixtures";
 import { canVisit } from "../src/domain/portal";
 import {
@@ -22,7 +22,9 @@ test("opaque sessions expire, revoke, and never serialize upstream credentials i
       "server-only-test-cookie",
     ),
   );
-  assert.equal(store.get(id, 1_801_000), undefined);
+  assert.equal(SESSION_TTL_SECONDS, 4 * 60 * 60);
+  assert.ok(store.get(id, 1000 + SESSION_TTL_SECONDS * 1000 - 1));
+  assert.equal(store.get(id, 1000 + SESSION_TTL_SECONDS * 1000), undefined);
   const second = store.create(makePreviewContext("buyer"));
   store.revoke(second);
   assert.equal(store.get(second), undefined);

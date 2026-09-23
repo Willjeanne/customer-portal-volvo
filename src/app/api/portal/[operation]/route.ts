@@ -26,6 +26,7 @@ import {
   PortalError,
 } from "@/server/security";
 import { requireSession, SESSION_COOKIE } from "@/server/session";
+import { SESSION_TTL_SECONDS } from "@/server/session-store";
 import {
   createSession,
   revokeSession,
@@ -196,7 +197,7 @@ async function handlePOST(
         httpOnly: true,
         sameSite: "strict",
         path: "/",
-        maxAge: 1800,
+        maxAge: SESSION_TTL_SECONDS,
         secure: sharedEnabled(),
       });
       return response;

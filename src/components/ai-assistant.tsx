@@ -1106,11 +1106,11 @@ export function AiAssistant({
           <div className="assistant-intro">
             <p className="eyebrow">AI ASSISTANT</p>
             {/*
-              `user.name` is the VTEX login, not a given name (server/vtex.ts:173),
-              and no email is exposed by the session. It is shown verbatim rather
-              than prettified into a first name that was never provided.
+              `user.name` is the shopper first/last name read at sign-in
+              (server/vtex.ts), falling back to the VTEX login when the profile
+              has none. A login has no space, so it is shown whole.
             */}
-            <h1>Hello, {context.user.name}</h1>
+            <h1>Hello, {context.user.name.split(" ")[0]}</h1>
             <p className="assistant-tagline">
               Your Volvo expert, always at hand.
             </p>
