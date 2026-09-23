@@ -18,6 +18,15 @@ import {
   readVehicles,
   registerCallback,
   unescapeText,
+  buildOrderFrame,
+  canAddToCart,
+  cartQuantity,
+  cartTotals,
+  readOrder,
+  readStoredCart,
+  setCartQuantity,
+  MAX_CART_QUANTITY,
+  type ChatProduct,
 } from "../src/domain/wwc";
 
 test("register callback follows the documented shape", () => {
@@ -544,4 +553,163 @@ test("part descriptions are reduced to plain text", () => {
   assert.equal(readDescription("Ref 85021811"), null);
   assert.equal(readDescription("<p> </p>"), null);
   assert.equal(readDescription(null), null);
+});
+
+const part = (overrides: Partial<ChatProduct> = {}): ChatProduct => ({
+  id: "85021811#1#1",
+  name: "Clutch Kit",
+  price: 100,
+  listPrice: null,
+  image: "https://cdn.example/clutch.png",
+  sellerId: "1",
+  description: null,
+  ...overrides,
+});
+
+test("cart lines add, update, cap and remove by retailer id", () => {
+  let cart = setCartQuantity([], part(), 1);
+  cart = setCartQuantity(cart, part({ id: "21337557#1" }), 2);
+  assert.deepEqual(
+    cart.map((line) => line.product.id),
+    ["85021811#1#1", "21337557#1"],
+  );
+
+  cart = setCartQuantity(cart, part({ price: 90 }), 3);
+  assert.equal(cartQuantity(cart, "85021811#1#1"), 3);
+  // The latest card wins, and the line keeps its place in the cart.
+  assert.equal(cart[0].product.price, 90);
+  assert.equal(cart[0].product.id, "85021811#1#1");
+
+  assert.equal(
+    cartQuantity(setCartQuantity(cart, part(), 5_000), "85021811#1#1"),
+    MAX_CART_QUANTITY,
+  );
+  cart = setCartQuantity(cart, part(), 0);
+  assert.deepEqual(cart.map((line) => line.product.id), ["21337557#1"]);
+  assert.equal(cartQuantity(cart, "unknown"), 0);
+});
+
+test("an unpriced part cannot enter the cart", () => {
+  const unpriced = part({ price: null });
+  assert.equal(canAddToCart(unpriced), false);
+  assert.deepEqual(setCartQuantity([], unpriced, 1), []);
+});
+
+test("cart totals separate list price, discount and charged total", () => {
+  const cart = setCartQuantity(
+    setCartQuantity([], part({ price: 80, listPrice: 100 }), 2),
+    part({ id: "b", price: 10 }),
+    3,
+  );
+  assert.deepEqual(cartTotals(cart), {
+    units: 5,
+    subtotal: 230,
+    savings: 40,
+    total: 190,
+  });
+});
+
+test("place order sends the native widget's order payload", () => {
+  const cart = setCartQuantity(
+    setCartQuantity([], part({ price: 80, listPrice: 100 }), 2),
+    part({ id: "b", image: null, description: "Air filter", sellerId: "2" }),
+    1,
+  );
+  const frame = buildOrderFrame(cart, {
+    first: false,
+    fields: {},
+    now: 1_700_000_000_000,
+  });
+  assert.deepEqual(frame, {
+    type: "message",
+    message: {
+      type: "order",
+      timestamp: "1700000000000",
+      order: {
+        product_items: [
+          {
+            product_retailer_id: "85021811#1#1",
+            name: "Clutch Kit",
+            // Native: `price` is the list price, `sale_price` what is charged.
+            price: "100.00",
+            sale_price: "80.00",
+            currency: "USD",
+            image: "https://cdn.example/clutch.png",
+            seller_id: "1",
+            quantity: 2,
+          },
+          {
+            product_retailer_id: "b",
+            name: "Clutch Kit",
+            price: "100.00",
+            sale_price: "100.00",
+            currency: "USD",
+            description: "Air filter",
+            seller_id: "2",
+            quantity: 1,
+          },
+        ],
+      },
+    },
+  });
+});
+
+test("the first send of a contact carries its fields with the order", () => {
+  const frame = buildOrderFrame(setCartQuantity([], part(), 1), {
+    first: true,
+    fields: { portal_user: "buyer" },
+  });
+  assert.equal(frame?.type, "message_with_fields");
+  assert.deepEqual(frame?.data, { portal_user: "buyer" });
+  assert.equal(buildOrderFrame([], { first: false, fields: {} }), null);
+});
+
+test("a sent cart reads back as a summary, not as addable part cards", () => {
+  const body = {
+    type: "order",
+    order: {
+      product_items: [
+        {
+          product_retailer_id: "a",
+          name: "A",
+          price: "100.00",
+          sale_price: "80.00",
+          quantity: 2,
+        },
+        { product_retailer_id: "b", name: "B", price: "5,50" },
+      ],
+    },
+  };
+  assert.deepEqual(readOrder(body), { units: 3, lines: 2, total: 165.5 });
+  assert.equal(readOrder({ text: "hi" }), null);
+
+  const [message] = readHistory([
+    { direction: "out", timestamp: 1, message: body },
+  ]);
+  assert.equal(message.role, "visitor");
+  assert.deepEqual(message.products, []);
+  assert.deepEqual(message.order, { units: 3, lines: 2, total: 165.5 });
+
+  assert.deepEqual(readOrder({ order: { product_items: [{ name: "X" }] } }), {
+    units: 1,
+    lines: 1,
+    total: null,
+  });
+});
+
+test("a stored cart is restored only from well-formed lines", () => {
+  const good = { product: part(), quantity: 2 };
+  const raw = JSON.stringify([
+    good,
+    good, // same id twice
+    { product: part({ id: "c" }), quantity: 0 },
+    { product: part({ id: "d" }), quantity: 1.5 },
+    { product: { ...part({ id: "e" }), price: null }, quantity: 1 },
+    { product: { id: "f" }, quantity: 1 },
+    "junk",
+  ]);
+  assert.deepEqual(readStoredCart(raw), [good]);
+  assert.deepEqual(readStoredCart("{not json"), []);
+  assert.deepEqual(readStoredCart(JSON.stringify({ a: 1 })), []);
+  assert.deepEqual(readStoredCart(null), []);
 });

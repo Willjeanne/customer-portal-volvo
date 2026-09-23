@@ -33,6 +33,8 @@ import {
   Plus,
   CaretLeft,
   CaretDown,
+  Minus,
+  Trash,
   // <<< CLAUDE
 } from "@phosphor-icons/react";
 const icons = {
@@ -69,6 +71,8 @@ const icons = {
   Plus,
   CaretLeft,
   CaretDown,
+  Minus,
+  Trash,
   // <<< CLAUDE
 };
 export function Icon({

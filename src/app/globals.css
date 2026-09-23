@@ -2307,3 +2307,362 @@ button.assistant-product-summary:focus-visible {
   opacity: 0.55;
   cursor: default;
 }
+
+/* ── AI Assistant · internal cart ─────────────────────────────────────────
+   Parts added from the agent's cards stay in the chat until "Place order"
+   hands them to the agent. Scoped to .assistant-*; nothing above changes. */
+.assistant-actions {
+  gap: 10px;
+}
+.assistant-cart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.assistant-cart-toggle:hover {
+  border-color: var(--blue);
+  background: var(--selected);
+}
+.assistant-cart-toggle.has-items {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.assistant-cart-toggle:focus-visible,
+.assistant-add:focus-visible,
+.assistant-stepper button:focus-visible,
+.assistant-cart-close:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.assistant-cart-count {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  animation: assistant-cart-bump 0.3s ease-out;
+}
+@keyframes assistant-cart-bump {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Card row: the summary keeps the space, the cart control hugs the right. */
+.assistant-product-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+}
+.assistant-product-row > .assistant-product-summary {
+  flex: 1;
+  min-width: 0;
+}
+.assistant-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid #8db4e4;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.assistant-add:hover {
+  background: var(--selected);
+}
+.assistant-stepper {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--blue);
+  border-radius: 999px;
+  background: #fff;
+}
+.assistant-stepper button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--blue);
+  cursor: pointer;
+}
+.assistant-stepper button:hover:not(:disabled) {
+  background: var(--selected);
+}
+.assistant-stepper button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.assistant-stepper output {
+  min-width: 26px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 520px) {
+  .assistant-product-row {
+    flex-wrap: wrap;
+    padding: 0 8px 8px 0;
+  }
+  .assistant-product-row > .assistant-add,
+  .assistant-product-row > .assistant-stepper {
+    margin-left: 64px;
+  }
+}
+
+/* A sent cart in the visitor's bubble. */
+.assistant-order {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.assistant-order-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.assistant-order span:not(.assistant-order-icon) {
+  display: flex;
+  flex-direction: column;
+}
+.assistant-order small {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* The cart panel: a modal dialog docked to the right edge. */
+.assistant-cart {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(420px, 100vw);
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: #fff;
+  color: var(--navy);
+  box-shadow: -12px 0 32px rgba(8, 23, 56, 0.16);
+}
+.assistant-cart[open] {
+  animation: assistant-cart-in 0.22s ease-out;
+}
+.assistant-cart::backdrop {
+  background: rgba(8, 23, 56, 0.38);
+}
+@keyframes assistant-cart-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-cart[open],
+  .assistant-cart-count {
+    animation: none;
+  }
+}
+.assistant-cart-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.assistant-cart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.assistant-cart-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.assistant-cart-header p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.assistant-cart-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--navy);
+  cursor: pointer;
+}
+.assistant-cart-close:hover {
+  background: var(--surface);
+}
+.assistant-cart-lines {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 20px;
+  list-style: none;
+}
+.assistant-cart-line {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.assistant-cart-line:last-child {
+  border-bottom: 0;
+}
+.assistant-cart-line .assistant-product-image {
+  border: 1px solid var(--border);
+}
+.assistant-cart-line-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.assistant-cart-line-text strong {
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.assistant-cart-line-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-cart-line-actions {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.assistant-cart-line-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.assistant-cart-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 28px;
+  text-align: center;
+}
+.assistant-cart-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--selected);
+  color: var(--blue);
+}
+.assistant-cart-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.assistant-cart-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.assistant-cart-totals {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+.assistant-cart-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.assistant-cart-totals dt {
+  color: var(--muted);
+}
+.assistant-cart-totals dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.assistant-cart-totals .is-discount dd {
+  color: var(--green);
+}
+.assistant-cart-totals .is-total {
+  font-size: 17px;
+  font-weight: 700;
+}
+.assistant-cart-totals .is-total dt {
+  color: var(--navy);
+}
+.assistant-cart-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.assistant-cart-footer .button {
+  cursor: pointer;
+}
+.assistant-cart-footer .button:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: default;
+}

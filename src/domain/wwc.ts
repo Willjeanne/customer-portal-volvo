@@ -30,6 +30,8 @@ export interface ChatMessage {
   products: ChatProduct[];
   /** Portal `Vehicle.id`s, in the order sent. Resolved by the renderer. */
   vehicles: string[];
+  /** A cart the visitor sent with "Place order". */
+  order?: ChatOrderSummary;
   at: number;
 }
 
@@ -367,15 +369,18 @@ export function readHistory(entries: unknown, now = Date.now()): ChatMessage[] {
       const record = entry as Record<string, unknown>;
       const body = record.message ?? record;
       const text = readText(body);
-      const products = readProducts(body);
-      const vehicles = readVehicles(body);
-      if (!text && !products.length && !vehicles.length) return null;
+      // A sent cart replays as its summary, never as addable part cards.
+      const order = readOrder(body);
+      const products = order ? [] : readProducts(body);
+      const vehicles = order ? [] : readVehicles(body);
+      if (!text && !products.length && !vehicles.length && !order) return null;
       return {
         key: `history-${index}`,
         role: record.direction === "out" ? "visitor" : "agent",
         text,
         products,
         vehicles,
+        ...(order ? { order } : {}),
         at: normaliseTimestamp(record.timestamp, now),
       };
     })
@@ -392,4 +397,207 @@ export function applyHistory(
   incoming: ChatMessage[],
 ): ChatMessage[] {
   return incoming.length > current.length ? incoming : current;
+}
+
+/**
+ * Internal cart, as the native widget keeps it when it is not inside a VTEX
+ * store (`views/Cart.jsx` in weni-ai/webchat-react): lines live in the chat
+ * only, nothing reaches the portal draft or a VTEX orderForm, and "Place order"
+ * hands the whole cart to the agent as one `order` message. What happens next
+ * is decided by the flow on the Weni platform.
+ */
+export interface ChatCartLine {
+  product: ChatProduct;
+  quantity: number;
+}
+
+export const MAX_CART_QUANTITY = 999;
+
+/** The portal trades in USD only; `money()` in the client makes the same call. */
+export const CART_CURRENCY = "USD";
+
+/** An unpriced part cannot be ordered: the agent would receive no amount. */
+export function canAddToCart(product: ChatProduct): boolean {
+  return product.price !== null;
+}
+
+export function cartQuantity(cart: ChatCartLine[], id: string): number {
+  return cart.find((line) => line.product.id === id)?.quantity ?? 0;
+}
+
+/**
+ * Sets one line. Zero removes it; a new line goes to the end so the cart keeps
+ * the order in which parts were added. The latest card replaces the stored
+ * product, so a price refreshed by the agent is the one that is ordered.
+ */
+export function setCartQuantity(
+  cart: ChatCartLine[],
+  product: ChatProduct,
+  quantity: number,
+): ChatCartLine[] {
+  const next = Math.min(
+    MAX_CART_QUANTITY,
+    Math.max(0, Math.floor(Number(quantity)) || 0),
+  );
+  const index = cart.findIndex((line) => line.product.id === product.id);
+  if (next === 0) {
+    return index < 0 ? cart : cart.filter((_, i) => i !== index);
+  }
+  if (!canAddToCart(product)) return cart;
+  if (index < 0) return [...cart, { product, quantity: next }];
+  return cart.map((line, i) =>
+    i === index ? { product, quantity: next } : line,
+  );
+}
+
+export interface ChatCartTotals {
+  units: number;
+  /** At list price, before any discount. */
+  subtotal: number;
+  savings: number;
+  total: number;
+}
+
+export function cartTotals(cart: ChatCartLine[]): ChatCartTotals {
+  return cart.reduce(
+    (totals, { product, quantity }) => {
+      const charged = product.price ?? 0;
+      const listed = product.listPrice ?? charged;
+      return {
+        units: totals.units + quantity,
+        subtotal: totals.subtotal + listed * quantity,
+        savings: totals.savings + (listed - charged) * quantity,
+        total: totals.total + charged * quantity,
+      };
+    },
+    { units: 0, subtotal: 0, savings: 0, total: 0 },
+  );
+}
+
+/**
+ * `product_items` exactly as the native cart sends them. There, `price` is the
+ * list price and `sale_price` what is charged; here `price` is already the
+ * charged amount, so the list price is restored when there is a discount.
+ * The full retailer id is kept, `#seller#tradePolicy` included, because that is
+ * the id the agent sent.
+ */
+export function buildOrderItems(cart: ChatCartLine[]) {
+  return cart
+    .filter(({ product, quantity }) => quantity > 0 && product.price !== null)
+    .map(({ product, quantity }) => ({
+      product_retailer_id: product.id,
+      name: product.name,
+      price: (product.listPrice ?? product.price ?? 0).toFixed(2),
+      sale_price: (product.price ?? 0).toFixed(2),
+      currency: CART_CURRENCY,
+      ...(product.image ? { image: product.image } : {}),
+      ...(product.description ? { description: product.description } : {}),
+      seller_id: product.sellerId,
+      quantity,
+    }));
+}
+
+/**
+ * The socket frame for "Place order". Like a text message, the very first send
+ * of a contact carries its custom fields, since the contact does not exist
+ * before it. The timestamp is a millisecond string, as the native widget sends.
+ */
+export function buildOrderFrame(
+  cart: ChatCartLine[],
+  options: { first: boolean; fields: Record<string, string>; now?: number },
+): Record<string, unknown> | null {
+  const items = buildOrderItems(cart);
+  if (!items.length) return null;
+  const message = {
+    type: "order",
+    timestamp: String(options.now ?? Date.now()),
+    order: { product_items: items },
+  };
+  return options.first
+    ? { type: "message_with_fields", message, data: options.fields }
+    : { type: "message", message };
+}
+
+/** What the thread shows for a sent cart: counts and amount, not the lines. */
+export interface ChatOrderSummary {
+  units: number;
+  lines: number;
+  /** Null when a line came back without a readable amount. */
+  total: number | null;
+}
+
+export function readOrder(body: unknown): ChatOrderSummary | null {
+  if (!body || typeof body !== "object") return null;
+  const items = readArray(
+    (body as Record<string, unknown>).order,
+    "product_items",
+  );
+  if (!items.length) return null;
+  let units = 0;
+  let total: number | null = 0;
+  for (const item of items) {
+    const record = (item && typeof item === "object" ? item : {}) as Record<
+      string,
+      unknown
+    >;
+    const quantity =
+      typeof record.quantity === "number" && record.quantity > 0
+        ? record.quantity
+        : 1;
+    units += quantity;
+    const amount = readMoney(record.sale_price) ?? readMoney(record.price);
+    total =
+      total === null || amount === null ? null : total + amount * quantity;
+  }
+  return { units, lines: items.length, total };
+}
+
+function isStoredProduct(value: unknown): value is ChatProduct {
+  if (!value || typeof value !== "object") return false;
+  const p = value as Record<string, unknown>;
+  const nullableString = (v: unknown) => v === null || typeof v === "string";
+  const nullableNumber = (v: unknown) =>
+    v === null || (typeof v === "number" && Number.isFinite(v));
+  return (
+    typeof p.id === "string" &&
+    p.id.length > 0 &&
+    typeof p.name === "string" &&
+    typeof p.price === "number" &&
+    Number.isFinite(p.price) &&
+    nullableNumber(p.listPrice) &&
+    nullableString(p.image) &&
+    typeof p.sellerId === "string" &&
+    nullableString(p.description)
+  );
+}
+
+/**
+ * The cart survives leaving the section through sessionStorage. What comes
+ * back is untrusted: a malformed line is dropped rather than repaired.
+ */
+export function readStoredCart(raw: string | null): ChatCartLine[] {
+  if (!raw) return [];
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(value)) return [];
+  const cart: ChatCartLine[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const { product, quantity } = entry as Record<string, unknown>;
+    if (!isStoredProduct(product)) continue;
+    if (
+      typeof quantity !== "number" ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > MAX_CART_QUANTITY
+    )
+      continue;
+    if (cart.some((line) => line.product.id === product.id)) continue;
+    cart.push({ product, quantity });
+  }
+  return cart;
 }
