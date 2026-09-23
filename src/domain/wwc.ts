@@ -28,6 +28,8 @@ export interface ChatMessage {
   role: ChatRole;
   text: string;
   products: ChatProduct[];
+  /** Portal `Vehicle.id`s, in the order sent. Resolved by the renderer. */
+  vehicles: string[];
   at: number;
 }
 
@@ -106,10 +108,31 @@ export function readSeller(id: string, fallback: unknown): string {
   return typeof fallback === "string" && fallback.trim() ? fallback : "1";
 }
 
+function readEntryId(entry: unknown): string | null {
+  return (
+    readString(entry, "product_retailer_id") || readString(entry, "retailer_id")
+  );
+}
+
+/**
+ * Agents send fleet vehicles through the same catalogue SDK as parts, marked
+ * by this prefix on the retailer id. The rest is the portal `Vehicle.id`.
+ */
+const VEHICLE_PREFIX = "vehicle:";
+
+/** The vehicle id carried by an entry, or null when it is not a vehicle. */
+function readVehicleId(entry: unknown): string | null {
+  const id = readEntryId(entry);
+  if (!id?.startsWith(VEHICLE_PREFIX)) return null;
+  const vehicleId = id.slice(VEHICLE_PREFIX.length).trim();
+  return vehicleId || null;
+}
+
 function readProduct(entry: unknown): ChatProduct | null {
   if (!entry || typeof entry !== "object") return null;
-  const id =
-    readString(entry, "product_retailer_id") || readString(entry, "retailer_id");
+  const id = readEntryId(entry);
+  // A vehicle entry is never a part, even when it is malformed.
+  if (id?.startsWith(VEHICLE_PREFIX)) return null;
   const name = readString(entry, "name");
   // The guide is explicit: without an id or a name there is no product.
   if (!id || !name) return null;
@@ -135,13 +158,13 @@ function readProduct(entry: unknown): ChatProduct | null {
  * `catalog_message`, whose item id is `retailer_id` — reading only
  * `interactive.action.product_items` returns an empty list.
  */
-export function readProducts(body: unknown): ChatProduct[] {
+function readEntries(body: unknown): unknown[] {
   if (!body || typeof body !== "object") return [];
   const record = body as Record<string, unknown>;
   const interactive = record.interactive as Record<string, unknown> | undefined;
   const action = interactive?.action as Record<string, unknown> | undefined;
 
-  const entries: unknown[] = [
+  return [
     ...readArray(action, "product_items"),
     ...readArray(action, "sections").flatMap((section) =>
       readArray(section, "product_items"),
@@ -151,10 +174,12 @@ export function readProducts(body: unknown): ChatProduct[] {
       readArray(group, "product_retailer_info"),
     ),
   ];
+}
 
+export function readProducts(body: unknown): ChatProduct[] {
   const seen = new Set<string>();
   const products: ChatProduct[] = [];
-  for (const entry of entries) {
+  for (const entry of readEntries(body)) {
     const product = readProduct(entry);
     if (product && !seen.has(product.id)) {
       seen.add(product.id);
@@ -162,6 +187,20 @@ export function readProducts(body: unknown): ChatProduct[] {
     }
   }
   return products;
+}
+
+/**
+ * Vehicle ids sent as `vehicle:<id>` catalogue entries. Their price, seller and
+ * currency are placeholders the SDK requires, so only the id is kept: the card
+ * is drawn from the portal's own fleet data, never from what the agent sent.
+ */
+export function readVehicles(body: unknown): string[] {
+  const ids: string[] = [];
+  for (const entry of readEntries(body)) {
+    const id = readVehicleId(entry);
+    if (id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
 }
 
 /**
@@ -209,7 +248,7 @@ export function readCatalogTitle(body: unknown): string | null {
  */
 export function readEnvelope(
   text: string,
-): { text: string; products: ChatProduct[] }[] | null {
+): { text: string; products: ChatProduct[]; vehicles: string[] }[] | null {
   const trimmed = text.trim();
   if (!trimmed.startsWith("{")) return null;
 
@@ -226,8 +265,15 @@ export function readEnvelope(
     return null;
 
   return readArray(record, "messages_sent")
-    .map((entry) => ({ text: readText(entry), products: readProducts(entry) }))
-    .filter((part) => part.text || part.products.length > 0);
+    .map((entry) => ({
+      text: readText(entry),
+      products: readProducts(entry),
+      vehicles: readVehicles(entry),
+    }))
+    .filter(
+      (part) =>
+        part.text || part.products.length > 0 || part.vehicles.length > 0,
+    );
 }
 
 /** Spacing is not content: two copies may differ only in their line breaks. */
@@ -235,16 +281,18 @@ function comparable(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Same author, same words, same products: the second copy adds nothing. */
+/** Same author, same words, same cards: the second copy adds nothing. */
 export function sameContent(
-  a: Pick<ChatMessage, "role" | "text" | "products">,
-  b: Pick<ChatMessage, "role" | "text" | "products">,
+  a: Pick<ChatMessage, "role" | "text" | "products" | "vehicles">,
+  b: Pick<ChatMessage, "role" | "text" | "products" | "vehicles">,
 ): boolean {
   return (
     a.role === b.role &&
     comparable(a.text) === comparable(b.text) &&
     a.products.length === b.products.length &&
-    a.products.every((product, index) => product.id === b.products[index].id)
+    a.products.every((product, index) => product.id === b.products[index].id) &&
+    a.vehicles.length === b.vehicles.length &&
+    a.vehicles.every((id, index) => id === b.vehicles[index])
   );
 }
 
@@ -284,12 +332,14 @@ export function readHistory(entries: unknown, now = Date.now()): ChatMessage[] {
       const body = record.message ?? record;
       const text = readText(body);
       const products = readProducts(body);
-      if (!text && !products.length) return null;
+      const vehicles = readVehicles(body);
+      if (!text && !products.length && !vehicles.length) return null;
       return {
         key: `history-${index}`,
         role: record.direction === "out" ? "visitor" : "agent",
         text,
         products,
+        vehicles,
         at: normaliseTimestamp(record.timestamp, now),
       };
     })

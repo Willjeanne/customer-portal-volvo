@@ -30,6 +30,7 @@ import {
   readHistory,
   readProducts,
   readText,
+  readVehicles,
   registerCallback,
   type ChatMessage,
   type ChatProduct,
@@ -39,6 +40,7 @@ import {
   fleetCounts,
   fleetSites,
   statusModifier,
+  vehicleById,
   vehiclePhoto,
   type Vehicle,
 } from "@/domain/fleet";
@@ -116,23 +118,6 @@ function ProductCard({ product }: { product: ChatProduct }): React.JSX.Element {
     </a>
   ) : (
     <div className="assistant-product">{body}</div>
-  );
-}
-
-function Bubble({ message }: { message: ChatMessage }): React.JSX.Element {
-  return (
-    <div className={`assistant-turn is-${message.role}`}>
-      <div className="assistant-bubble">
-        {message.text ? <p>{message.text}</p> : null}
-        {message.products.length > 0 && (
-          <div className="assistant-products">
-            {message.products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -252,6 +237,49 @@ function VehicleCarousel({
   );
 }
 
+/**
+ * Vehicles an agent pointed at, drawn from the portal's own fleet. Only ids
+ * that resolve are shown: an unknown id gets no card, and the agent's
+ * `product_url` is never followed — the link is always built here, in-app.
+ */
+function MessageVehicles({ ids }: { ids: string[] }): React.JSX.Element | null {
+  const vehicles = ids
+    .map((id) => vehicleById(id))
+    .filter((vehicle): vehicle is Vehicle => vehicle !== undefined);
+  if (!vehicles.length) return null;
+  return (
+    <div className="assistant-message-vehicles">
+      {vehicles.length === 1 ? (
+        <VehicleCard vehicle={vehicles[0]} />
+      ) : (
+        <VehicleCarousel vehicles={vehicles} />
+      )}
+    </div>
+  );
+}
+
+function Bubble({ message }: { message: ChatMessage }): React.JSX.Element {
+  // A carousel sizes to its container, so the bubble takes its full width.
+  const wide = message.vehicles.filter((id) => vehicleById(id)).length > 1;
+  return (
+    <div className={`assistant-turn is-${message.role}`}>
+      <div className={`assistant-bubble${wide ? " is-wide" : ""}`}>
+        {message.text ? <p>{message.text}</p> : null}
+        {message.vehicles.length > 0 && (
+          <MessageVehicles ids={message.vehicles} />
+        )}
+        {message.products.length > 0 && (
+          <div className="assistant-products">
+            {message.products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AiAssistant({
   context,
 }: {
@@ -347,25 +375,29 @@ export function AiAssistant({
    * parts it announces; the duplicate guard then drops whichever copy arrives
    * second, envelope or real frame.
    */
-  const pushAgent = useCallback((text: string, products: ChatProduct[]) => {
-    const parts = text ? readEnvelope(text) : null;
-    const turns = parts ?? [{ text, products }];
-    setMessages((current) =>
-      turns.reduce(
-        (thread, turn) =>
-          turn.text || turn.products.length
-            ? appendMessage(thread, {
-                key: `agent-${Date.now()}-${Math.random()}`,
-                role: "agent",
-                text: turn.text,
-                products: turn.products,
-                at: Date.now(),
-              })
-            : thread,
-        current,
-      ),
-    );
-  }, []);
+  const pushAgent = useCallback(
+    (text: string, products: ChatProduct[], vehicles: string[]) => {
+      const parts = text ? readEnvelope(text) : null;
+      const turns = parts ?? [{ text, products, vehicles }];
+      setMessages((current) =>
+        turns.reduce(
+          (thread, turn) =>
+            turn.text || turn.products.length || turn.vehicles.length
+              ? appendMessage(thread, {
+                  key: `agent-${Date.now()}-${Math.random()}`,
+                  role: "agent",
+                  text: turn.text,
+                  products: turn.products,
+                  vehicles: turn.vehicles,
+                  at: Date.now(),
+                })
+              : thread,
+          current,
+        ),
+      );
+    },
+    [],
+  );
 
   const push = useCallback((message: ChatMessage) => {
     setMessages((current) => [...current, message]);
@@ -484,7 +516,7 @@ export function AiAssistant({
         const text = typeof frame.content === "string" ? frame.content : "";
         setStreamed("");
         settleWaiting();
-        if (text) pushAgent(text, []);
+        if (text) pushAgent(text, [], []);
         return;
       }
 
@@ -492,13 +524,15 @@ export function AiAssistant({
         const body = frame.message;
         const text = readText(body);
         const products = readProducts(body);
+        const vehicles = readVehicles(body);
         setStreamed("");
         // Not an immediate stop. An agent that answers "one moment" and keeps
         // working sends that as an ordinary message; ending the wait on it
         // would claim the turn is over. The settle window below keeps the
         // truck running, and the message simply lands above it.
         settleWaiting();
-        if (text || products.length) pushAgent(text, products);
+        if (text || products.length || vehicles.length)
+          pushAgent(text, products, vehicles);
       }
     });
 
@@ -594,6 +628,7 @@ export function AiAssistant({
         role: "visitor",
         text: trimmed,
         products: [],
+        vehicles: [],
         at: Date.now(),
       });
       setDraft("");

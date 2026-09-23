@@ -14,6 +14,7 @@ import {
   readProducts,
   readSeller,
   readText,
+  readVehicles,
   registerCallback,
   unescapeText,
 } from "../src/domain/wwc";
@@ -291,6 +292,7 @@ test("the same answer is not appended twice", () => {
     role: "agent" as const,
     text: "Here are common filter options.",
     products: [],
+    vehicles: [] as string[],
     at: 1,
   };
   const echo = { ...first, key: "b", at: 2 };
@@ -372,6 +374,7 @@ test("the envelope and its escaped interactive twin render once", () => {
     role: "agent" as const,
     text: part.text,
     products: part.products,
+    vehicles: part.vehicles,
     at: 1,
   };
   const fromInteractive = {
@@ -379,9 +382,148 @@ test("the envelope and its escaped interactive twin render once", () => {
     role: "agent" as const,
     text: readText(INTERACTIVE_BODY),
     products: readProducts(INTERACTIVE_BODY),
+    vehicles: readVehicles(INTERACTIVE_BODY),
     at: 2,
   };
   assert.equal(fromInteractive.text, TWIN_TEXT);
   const thread = appendMessage(appendMessage([], fromEnvelope), fromInteractive);
   assert.equal(thread.length, 1);
+});
+
+/** Shape sent by the fleet agents: vehicles through the catalogue SDK. */
+function vehicleEntry(id: string, name: string) {
+  return {
+    retailer_id: id,
+    name,
+    description: "Volvo FM13 Classic · Maintenance Due",
+    product_url: `/fleet/${id.replace(/^vehicle:/, "")}`,
+    price: "0.00",
+    seller_id: "1",
+    currency: "USD",
+  };
+}
+const VEHICLES_GROUP = {
+  product: "Vehicles",
+  product_retailer_info: [
+    vehicleEntry("vehicle:truck-189", "Truck 189"),
+    vehicleEntry("vehicle:truck-203", "Truck 203"),
+    vehicleEntry("vehicle:truck-276", "Truck 276"),
+  ],
+};
+
+test("vehicle entries become vehicle ids, never products", () => {
+  const body = {
+    text: "The vehicles due for maintenance are: ...",
+    catalog_message: {
+      send_catalog: false,
+      action_button_text: "View",
+      products: [VEHICLES_GROUP],
+    },
+  };
+  assert.deepEqual(readVehicles(body), ["truck-189", "truck-203", "truck-276"]);
+  assert.deepEqual(readProducts(body), []);
+});
+
+test("a message may carry vehicles and parts together", () => {
+  const body = {
+    text: "Parts for Truck 147",
+    catalog_message: {
+      products: [
+        {
+          product: "Vehicles",
+          product_retailer_info: [vehicleEntry("vehicle:truck-147", "Truck 147")],
+        },
+        {
+          product: "Brakes",
+          product_retailer_info: [
+            { retailer_id: "1437#1", name: "Brake Shoes Set", price: "1516.39" },
+          ],
+        },
+      ],
+    },
+  };
+  assert.deepEqual(readVehicles(body), ["truck-147"]);
+  assert.deepEqual(
+    readProducts(body).map((product) => product.id),
+    ["1437#1"],
+  );
+});
+
+test("only the vehicle: prefix marks a vehicle", () => {
+  const body = {
+    catalog_message: {
+      products: [
+        {
+          product_retailer_info: [
+            { retailer_id: "vehicles:truck-1", name: "Look-alike" },
+            { retailer_id: "truck-189", name: "Bare id" },
+            { retailer_id: "vehicle:", name: "Empty id" },
+            { product_retailer_id: "vehicle:truck-147", name: "Truck 147" },
+          ],
+        },
+      ],
+    },
+  };
+  assert.deepEqual(readVehicles(body), ["truck-147"]);
+  // Unknown prefixes stay parts; an empty vehicle id is neither.
+  assert.deepEqual(
+    readProducts(body).map((product) => product.id),
+    ["vehicles:truck-1", "truck-189"],
+  );
+});
+
+test("duplicate vehicle ids are kept once, in order", () => {
+  const body = {
+    catalog_message: {
+      products: [
+        {
+          product_retailer_info: [
+            vehicleEntry("vehicle:truck-203", "Truck 203"),
+            vehicleEntry("vehicle:truck-189", "Truck 189"),
+            vehicleEntry("vehicle:truck-203", "Truck 203 again"),
+          ],
+        },
+      ],
+    },
+  };
+  assert.deepEqual(readVehicles(body), ["truck-203", "truck-189"]);
+});
+
+test("history and envelopes carry vehicles, even without text", () => {
+  const [message] = readHistory([
+    {
+      direction: "in",
+      timestamp: 1_700_000_000,
+      message: { catalog_message: { products: [VEHICLES_GROUP] } },
+    },
+  ]);
+  assert.equal(message.role, "agent");
+  assert.equal(message.text, "");
+  assert.deepEqual(message.products, []);
+  assert.deepEqual(message.vehicles, ["truck-189", "truck-203", "truck-276"]);
+
+  const parts = readEnvelope(
+    JSON.stringify({
+      is_final_output: true,
+      messages_sent: [{ catalog_message: { products: [VEHICLES_GROUP] } }],
+    }),
+  );
+  assert.deepEqual(parts?.[0].vehicles, ["truck-189", "truck-203", "truck-276"]);
+});
+
+test("different vehicles with the same words are a different answer", () => {
+  const first = {
+    key: "a",
+    role: "agent" as const,
+    text: "Here is the vehicle.",
+    products: [],
+    vehicles: ["truck-147"],
+    at: 1,
+  };
+  const thread = appendMessage([], first);
+  assert.equal(appendMessage(thread, { ...first, key: "b" }).length, 1);
+  assert.equal(
+    appendMessage(thread, { ...first, key: "c", vehicles: ["truck-203"] }).length,
+    2,
+  );
 });

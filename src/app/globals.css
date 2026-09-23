@@ -2122,6 +2122,16 @@ select {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* Fleet cards inside an agent answer: above any parts, below the text. */
+.assistant-bubble.is-wide {
+  width: 100%;
+}
+.assistant-message-vehicles {
+  margin-top: 10px;
+}
+.assistant-message-vehicles .assistant-carousel {
+  margin: 0 -8px;
+}
 .assistant-products {
   display: grid;
   gap: 8px;
