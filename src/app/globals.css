@@ -2098,6 +2098,11 @@ select {
   gap: 12px;
   padding: 4px 2px;
   max-height: calc(100vh - 230px);
+  /* Scrolls by wheel, touch and keyboard; the bar itself is not drawn. */
+  scrollbar-width: none;
+}
+.assistant-thread::-webkit-scrollbar {
+  display: none;
 }
 .assistant-turn {
   display: flex;
