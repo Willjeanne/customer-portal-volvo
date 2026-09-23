@@ -18,8 +18,8 @@ export interface ChatProduct {
   price: number | null;
   listPrice: number | null;
   image: string | null;
-  url: string | null;
   sellerId: string;
+  /** Plain text for the expanded card; null when there is nothing to add. */
   description: string | null;
 }
 
@@ -128,6 +128,41 @@ function readVehicleId(entry: unknown): string | null {
   return vehicleId || null;
 }
 
+const ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+
+/**
+ * Catalogue descriptions may carry HTML. They are reduced to plain text here so
+ * the card never renders markup, and React escapes whatever remains. The agent
+ * fills an empty description with "Ref <reference>", which repeats the SKU line
+ * and is dropped rather than offered as something to expand.
+ */
+export function readDescription(raw: string | null): string | null {
+  if (!raw) return null;
+  const text = raw
+    .replace(/<\s*(br|\/p|\/li|\/div)\b[^>]*>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code: string) => {
+      const lower = code.toLowerCase();
+      if (!lower.startsWith("#")) return ENTITIES[lower] ?? match;
+      const point = lower.startsWith("#x")
+        ? parseInt(lower.slice(2), 16)
+        : Number(lower.slice(1));
+      // Out-of-range points would make fromCodePoint throw; keep them literal.
+      return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : match;
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text || /^Ref \S+$/.test(text)) return null;
+  return text;
+}
+
 function readProduct(entry: unknown): ChatProduct | null {
   if (!entry || typeof entry !== "object") return null;
   const id = readEntryId(entry);
@@ -147,9 +182,10 @@ function readProduct(entry: unknown): ChatProduct | null {
     // A list price is only a discount when it sits above what is charged.
     listPrice: listed !== null && charged !== null && listed > charged ? listed : null,
     image: readString(entry, "image"),
-    url: readString(entry, "product_url"),
+    // `product_url` is deliberately not read: a part card expands in place and
+    // never sends the buyer to the storefront.
     sellerId: readSeller(id, record.seller_id),
-    description: readString(entry, "description"),
+    description: readDescription(readString(entry, "description")),
   };
 }
 

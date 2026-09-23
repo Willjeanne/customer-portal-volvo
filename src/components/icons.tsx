@@ -32,6 +32,7 @@ import {
   PaperPlaneRight,
   Plus,
   CaretLeft,
+  CaretDown,
   // <<< CLAUDE
 } from "@phosphor-icons/react";
 const icons = {
@@ -67,6 +68,7 @@ const icons = {
   PaperPlaneRight,
   Plus,
   CaretLeft,
+  CaretDown,
   // <<< CLAUDE
 };
 export function Icon({

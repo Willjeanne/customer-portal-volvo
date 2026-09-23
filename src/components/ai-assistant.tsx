@@ -15,7 +15,7 @@
  * `https://flows.weni.ai`). That config also sets `showVoiceRecordingButton`
  * and `showCameraButton` to false, so the composer here ships neither.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Icon } from "./icons";
 import type { BuyerContext } from "@/domain/portal";
@@ -79,9 +79,12 @@ function money(value: number | null): string | null {
 }
 
 function ProductCard({ product }: { product: ChatProduct }): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  // The same part can appear in several messages, so the id is per instance.
+  const panelId = useId();
   const charged = money(product.price);
   const listed = money(product.listPrice);
-  const body = (
+  const summary = (
     <>
       {product.image ? (
         // Catalogue images come from arbitrary CDNs; next/image would need each
@@ -106,18 +109,32 @@ function ProductCard({ product }: { product: ChatProduct }): React.JSX.Element {
       </span>
     </>
   );
-  return product.url ? (
-    <a
-      className="assistant-product"
-      href={product.url}
-      target="_blank"
-      rel="noreferrer noopener"
-    >
-      {body}
-      <Icon name="ArrowSquareOut" size={16} />
-    </a>
-  ) : (
-    <div className="assistant-product">{body}</div>
+  // Without a description there is nothing to reveal, so the card stays static.
+  if (!product.description) {
+    return (
+      <div className="assistant-product">
+        <div className="assistant-product-summary">{summary}</div>
+      </div>
+    );
+  }
+  return (
+    <div className={`assistant-product${open ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="assistant-product-summary"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {summary}
+        <Icon name="CaretDown" size={16} />
+      </button>
+      {open ? (
+        <p id={panelId} className="assistant-product-description">
+          {product.description}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

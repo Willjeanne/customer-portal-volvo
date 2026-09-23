@@ -2138,18 +2138,55 @@ select {
   margin-top: 10px;
 }
 .assistant-product {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
-  text-decoration: none;
   color: inherit;
 }
-a.assistant-product:hover {
+.assistant-product-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.assistant-product-summary {
+  cursor: pointer;
+}
+button.assistant-product-summary > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.assistant-product.is-open button.assistant-product-summary > svg {
+  transform: rotate(180deg);
+}
+.assistant-product:has(button.assistant-product-summary:hover),
+.assistant-product.is-open {
   border-color: var(--blue);
+}
+button.assistant-product-summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.assistant-product-description {
+  margin: 0;
+  padding: 0 12px 12px 64px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 520px) {
+  .assistant-product-description {
+    padding-left: 12px;
+  }
 }
 .assistant-product-image {
   width: 46px;

@@ -11,6 +11,7 @@ import {
   readHistory,
   readMoney,
   readEnvelope,
+  readDescription,
   readProducts,
   readSeller,
   readText,
@@ -102,10 +103,13 @@ test("catalog_message products are read through retailer_id", () => {
   // A list price only survives when it is above the charged price.
   assert.equal(first.listPrice, 1250);
   assert.equal(first.sellerId, "1");
+  assert.equal(first.description, "Optional copy.");
+  // A part card never links to the storefront, so the URL is not kept.
+  assert.equal("url" in first, false);
 
   // Optional fields stay null rather than being invented.
   assert.equal(second.image, null);
-  assert.equal(second.url, null);
+  assert.equal(second.description, null);
   assert.equal(second.listPrice, null);
   assert.equal(second.price, 2890);
 
@@ -526,4 +530,18 @@ test("different vehicles with the same words are a different answer", () => {
     appendMessage(thread, { ...first, key: "c", vehicles: ["truck-203"] }).length,
     2,
   );
+});
+
+test("part descriptions are reduced to plain text", () => {
+  assert.equal(
+    readDescription("<p>Clutch kit&nbsp;for <b>FH13</b></p><ul><li>Disc</li><li>Plate</li></ul>"),
+    "Clutch kit for FH13 Disc Plate",
+  );
+  assert.equal(readDescription("Seals &amp; gaskets &#8211; set &#x2F; 2"), "Seals & gaskets \u2013 set / 2");
+  // Unknown or out-of-range entities stay literal instead of throwing.
+  assert.equal(readDescription("A &bogus; B &#99999999;"), "A &bogus; B &#99999999;");
+  // The agent's "Ref <reference>" fallback repeats the SKU line: nothing to expand.
+  assert.equal(readDescription("Ref 85021811"), null);
+  assert.equal(readDescription("<p> </p>"), null);
+  assert.equal(readDescription(null), null);
 });
