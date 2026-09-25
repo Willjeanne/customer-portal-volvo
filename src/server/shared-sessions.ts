@@ -1,7 +1,11 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
-import { sessions, type PortalSession } from "./session-store";
+import {
+  sessions,
+  SESSION_TTL_SECONDS,
+  type PortalSession,
+} from "./session-store";
 import { PortalError } from "./security";
 
 export const sharedEnabled = () => process.env.NODE_ENV === "production";
@@ -76,10 +80,10 @@ export async function createSession(
     JSON.stringify({
       context,
       upstreamCookies: cookie,
-      expiresAt: Date.now() + 1800000,
+      expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000,
     }),
     "EX",
-    1800,
+    SESSION_TTL_SECONDS,
     "NX",
   ]);
   return id;

@@ -28,6 +28,13 @@ import {
   // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
   MapPin,
   Handshake,
+  Sparkle,
+  PaperPlaneRight,
+  Plus,
+  CaretLeft,
+  CaretDown,
+  Minus,
+  Trash,
   // <<< CLAUDE
 } from "@phosphor-icons/react";
 const icons = {
@@ -59,6 +66,13 @@ const icons = {
   // >>> CLAUDE — lot flotte, 20/09/2026 — à relire
   MapPin,
   Handshake,
+  Sparkle,
+  PaperPlaneRight,
+  Plus,
+  CaretLeft,
+  CaretDown,
+  Minus,
+  Trash,
   // <<< CLAUDE
 };
 export function Icon({

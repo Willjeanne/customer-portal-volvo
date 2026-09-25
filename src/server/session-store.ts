@@ -1,5 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { BuyerContext } from "../domain/portal";
+/** Absolute portal session lifetime. The VTEX token expiry is still enforced on every request. */
+export const SESSION_TTL_SECONDS = 4 * 60 * 60;
 export interface PortalSession {
   context: BuyerContext;
   expiresAt: number;
@@ -28,7 +30,7 @@ export class SessionStore {
     this.sessions.set(id, {
       context: structuredClone(context),
       upstreamCookies,
-      expiresAt: now + 30 * 60 * 1000,
+      expiresAt: now + SESSION_TTL_SECONDS * 1000,
     });
     return id;
   }

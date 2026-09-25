@@ -18,6 +18,10 @@ body {
   background: #fbfdff;
   font-size: 15px;
   line-height: 1.5;
+  /* `clip`, not `hidden`: full-bleed decoration measured in `100vw` includes
+     the scrollbar, and that overhang must not add a horizontal scrollbar.
+     `hidden` would make the body a scroll container and break sticky headers. */
+  overflow-x: clip;
 }
 button,
 input,
@@ -1731,3 +1735,949 @@ select {
 .checkout-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .checkout-confirmation dd { overflow-wrap: anywhere; }
 @media (max-width: 600px) { .checkout-items th, .checkout-items td { padding: 12px 5px; font-size: 12px; } .checkout-items th:first-child, .checkout-items td:first-child { width: 48%; } }
+/* ── AI Assistant ─────────────────────────────────────────────────────────
+   Scoped to .assistant-*; no existing rule is altered. The section fills the
+   content area so the composer can sit at the bottom like the reference. */
+/* The assistant page owns the viewport exactly: with no conversation there is
+   nothing below to reach, and a page scroll only dragged the backdrop off the
+   composer. Scoped with `:has` so no other section changes its scrolling. */
+.workspace:has(.assistant) {
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.workspace:has(.assistant) .main-content {
+  /* Shared with the backdrop below, which reaches down through this padding
+     so no plain strip is left under the composer. */
+  --assistant-pad-bottom: 24px;
+  flex: 1;
+  min-height: 0;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: var(--assistant-pad-bottom);
+  display: flex;
+  flex-direction: column;
+}
+.assistant {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+/* Whatever does not fit — a short window, a long fleet strip — scrolls here,
+   inside the page, so the composer and the backdrop stay put. */
+.assistant-landing {
+  min-height: 0;
+  overflow-y: auto;
+}
+/* Road backdrop: decorative only, so it rides on a pseudo-element behind the
+   content. The artwork is a full-colour illustration, so the opacity stays
+   very low — enough texture for the surface not to read as flat, not enough
+   to fight the text. It fades in from the top, where the headings sit. */
+.assistant::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: calc(-1 * var(--assistant-pad-bottom, 0px));
+  /* Full bleed. Inside the content box the illustration ended on the page
+     padding, and those two vertical edges read as a cut-out rectangle. Spanning
+     the viewport puts its own edges off screen, so the scene has no border of
+     its own. `100% auto`, not `cover`: cover scaled it to the section height
+     and cropped the road and the truck away at the sides. */
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+  z-index: 0;
+  pointer-events: none;
+  background: url("/assistant/backdrop.webp") center bottom / 100% auto
+    no-repeat;
+  opacity: 0.12;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 45%);
+}
+.assistant > * {
+  position: relative;
+  z-index: 1;
+}
+.assistant-landing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px 32px;
+  align-items: start;
+  flex: 1;
+}
+.assistant-intro h1 {
+  margin: 4px 0 0;
+  font-size: 40px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.assistant-tagline {
+  margin: 8px 0 0;
+  font-size: 18px;
+  color: var(--muted);
+}
+.assistant-lede {
+  margin: 12px 0 0;
+  max-width: 46ch;
+  color: var(--muted);
+}
+.assistant-fleet {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px;
+}
+.assistant-fleet header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.assistant-fleet h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.assistant-fleet header p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+/* Carousel: arrows and dots drive the strip, so no scrollbar is shown. */
+.assistant-carousel {
+  /* The arrows sit in the card padding, beside the strip, as in the mock. */
+  margin: 0 -8px;
+}
+.assistant-carousel-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.assistant-vehicles {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px 2px 4px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.assistant-vehicles::-webkit-scrollbar {
+  display: none;
+}
+.assistant-carousel-arrow {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #eef2f8;
+  color: var(--navy);
+  transition:
+    background-color 0.15s ease,
+    opacity 0.15s ease;
+}
+.assistant-carousel-arrow:hover:not(:disabled) {
+  background: var(--selected);
+  color: var(--blue);
+}
+/* Disabled, not removed: a button that unmounts shifts the card being read. */
+.assistant-carousel-arrow:disabled {
+  opacity: 0.35;
+  color: var(--muted);
+}
+.assistant-carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.assistant-carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #d4dced;
+  transition:
+    width 0.2s ease,
+    background-color 0.2s ease;
+}
+.assistant-carousel-dot.is-active {
+  width: 22px;
+  background: var(--blue);
+}
+.assistant-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+.assistant-restart {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(8, 23, 56, 0.18);
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+.assistant-restart:hover:not(:disabled) {
+  background: #0d2350;
+}
+.assistant-restart:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.assistant-restart:disabled {
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: none;
+}
+/* The waiting truck: the asset carries the wheels and the exhaust, the track
+   below carries the travel. The box is fixed so the thread does not jump when
+   the answer replaces it; the truck crosses it on a single Y, offset only in
+   X, and the edges are faded so it enters and leaves instead of popping. */
+.assistant-waiting {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: 38px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 9%,
+    #000 91%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 9%,
+    #000 91%,
+    transparent 100%
+  );
+}
+/* `left` rather than a transform: the track is fluid, so the end of the run
+   has to be the container's own width and only a percentage left offset
+   resolves against it. The box is 38px tall, so the cost is irrelevant. */
+.assistant-waiting img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 160px;
+  height: 100%;
+  object-fit: contain;
+  animation: assistant-truck-travel 5.4s linear infinite;
+}
+@keyframes assistant-truck-travel {
+  from {
+    left: -165px;
+  }
+  to {
+    left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-waiting {
+    width: 160px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .assistant-waiting img {
+    position: static;
+    animation: none;
+  }
+}
+.assistant-vehicle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  width: 210px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--surface);
+}
+.assistant-vehicle:hover {
+  border-color: var(--blue);
+  background: var(--selected);
+}
+.assistant-vehicle img {
+  width: 56px;
+  height: 40px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+.assistant-vehicle span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.assistant-vehicle small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-vehicle .status-pill {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.assistant-prompts {
+  grid-column: 1 / -1;
+}
+.assistant-prompts h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.assistant-prompts-note {
+  margin: 4px 0 14px;
+  color: var(--muted);
+}
+.assistant-suggestions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.assistant-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.assistant-suggestion:hover:not(:disabled) {
+  border-color: var(--blue);
+  background: var(--selected);
+}
+.assistant-suggestion:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.assistant-suggestion span:not(.assistant-suggestion-icon) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.assistant-suggestion small {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.assistant-suggestion-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--selected);
+  color: var(--blue);
+}
+.assistant-thread {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+  max-height: calc(100vh - 230px);
+  /* Scrolls by wheel, touch and keyboard; the bar itself is not drawn. */
+  scrollbar-width: none;
+}
+.assistant-thread::-webkit-scrollbar {
+  display: none;
+}
+.assistant-turn {
+  display: flex;
+}
+.assistant-turn.is-visitor {
+  justify-content: flex-end;
+}
+.assistant-bubble {
+  max-width: min(680px, 78%);
+  padding: 12px 15px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+.assistant-turn.is-visitor .assistant-bubble {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.assistant-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Fleet cards inside an agent answer: above any parts, below the text. */
+.assistant-bubble.is-wide {
+  width: 100%;
+}
+.assistant-message-vehicles {
+  margin-top: 10px;
+}
+.assistant-message-vehicles .assistant-carousel {
+  margin: 0 -8px;
+}
+.assistant-products {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.assistant-product {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+}
+.assistant-product-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.assistant-product-summary {
+  cursor: pointer;
+}
+button.assistant-product-summary > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.assistant-product.is-open button.assistant-product-summary > svg {
+  transform: rotate(180deg);
+}
+.assistant-product:has(button.assistant-product-summary:hover),
+.assistant-product.is-open {
+  border-color: var(--blue);
+}
+button.assistant-product-summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.assistant-product-description {
+  margin: 0;
+  padding: 0 12px 12px 64px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 520px) {
+  .assistant-product-description {
+    padding-left: 12px;
+  }
+}
+.assistant-product-image {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: #fff;
+}
+.assistant-product-image.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.assistant-product-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.assistant-product-price {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-weight: 600;
+}
+.assistant-product-price s {
+  font-weight: 400;
+  color: var(--muted);
+}
+.assistant-product-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+}
+.assistant-composer input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 10px 0;
+  color: inherit;
+}
+.assistant-composer input:disabled {
+  color: var(--muted);
+}
+.assistant-send {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  cursor: pointer;
+}
+.assistant-send:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: default;
+}
+.assistant-disclaimer {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+@media (max-width: 900px) {
+  .assistant-landing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .assistant-intro h1 {
+    font-size: 30px;
+  }
+  .assistant-bubble {
+    max-width: 88%;
+  }
+}
+.assistant-popular-title {
+  margin: 22px 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.assistant-popular {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.assistant-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.assistant-chip:hover:not(:disabled) {
+  border-color: var(--blue);
+  color: var(--navy);
+  background: var(--selected);
+}
+.assistant-chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ── AI Assistant · internal cart ─────────────────────────────────────────
+   Parts added from the agent's cards stay in the chat until "Place order"
+   hands them to the agent. Scoped to .assistant-*; nothing above changes. */
+.assistant-actions {
+  gap: 10px;
+}
+.assistant-cart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.assistant-cart-toggle:hover {
+  border-color: var(--blue);
+  background: var(--selected);
+}
+.assistant-cart-toggle.has-items {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.assistant-cart-toggle:focus-visible,
+.assistant-add:focus-visible,
+.assistant-stepper button:focus-visible,
+.assistant-cart-close:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.assistant-cart-count {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  animation: assistant-cart-bump 0.3s ease-out;
+}
+@keyframes assistant-cart-bump {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Card row: the summary keeps the space, the cart control hugs the right. */
+.assistant-product-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+}
+.assistant-product-row > .assistant-product-summary {
+  flex: 1;
+  min-width: 0;
+}
+.assistant-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid #8db4e4;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.assistant-add:hover {
+  background: var(--selected);
+}
+.assistant-stepper {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--blue);
+  border-radius: 999px;
+  background: #fff;
+}
+.assistant-stepper button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--blue);
+  cursor: pointer;
+}
+.assistant-stepper button:hover:not(:disabled) {
+  background: var(--selected);
+}
+.assistant-stepper button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.assistant-stepper output {
+  min-width: 26px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 520px) {
+  .assistant-product-row {
+    flex-wrap: wrap;
+    padding: 0 8px 8px 0;
+  }
+  .assistant-product-row > .assistant-add,
+  .assistant-product-row > .assistant-stepper {
+    margin-left: 64px;
+  }
+}
+
+/* A sent cart in the visitor's bubble. */
+.assistant-order {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.assistant-order-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.assistant-order span:not(.assistant-order-icon) {
+  display: flex;
+  flex-direction: column;
+}
+.assistant-order small {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* The cart panel: a modal dialog docked to the right edge. */
+.assistant-cart {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(420px, 100vw);
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: #fff;
+  color: var(--navy);
+  box-shadow: -12px 0 32px rgba(8, 23, 56, 0.16);
+}
+.assistant-cart[open] {
+  animation: assistant-cart-in 0.22s ease-out;
+}
+.assistant-cart::backdrop {
+  background: rgba(8, 23, 56, 0.38);
+}
+@keyframes assistant-cart-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-cart[open],
+  .assistant-cart-count {
+    animation: none;
+  }
+}
+.assistant-cart-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.assistant-cart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.assistant-cart-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.assistant-cart-header p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.assistant-cart-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--navy);
+  cursor: pointer;
+}
+.assistant-cart-close:hover {
+  background: var(--surface);
+}
+.assistant-cart-lines {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 20px;
+  list-style: none;
+}
+.assistant-cart-line {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.assistant-cart-line:last-child {
+  border-bottom: 0;
+}
+.assistant-cart-line .assistant-product-image {
+  border: 1px solid var(--border);
+}
+.assistant-cart-line-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.assistant-cart-line-text strong {
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.assistant-cart-line-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.assistant-cart-line-actions {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.assistant-cart-line-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.assistant-cart-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 32px 28px;
+  text-align: center;
+}
+.assistant-cart-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--selected);
+  color: var(--blue);
+}
+.assistant-cart-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.assistant-cart-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.assistant-cart-totals {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+.assistant-cart-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.assistant-cart-totals dt {
+  color: var(--muted);
+}
+.assistant-cart-totals dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.assistant-cart-totals .is-discount dd {
+  color: var(--green);
+}
+.assistant-cart-totals .is-total {
+  font-size: 17px;
+  font-weight: 700;
+}
+.assistant-cart-totals .is-total dt {
+  color: var(--navy);
+}
+.assistant-cart-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.assistant-cart-footer .button {
+  cursor: pointer;
+}
+.assistant-cart-footer .button:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: default;
+}

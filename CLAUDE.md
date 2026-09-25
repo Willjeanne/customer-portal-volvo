@@ -122,7 +122,7 @@ Les pages d’attente et fixtures ne sont pas des fonctionnalités intégrées.
 - Login réel corrigé : `/granted` n’est pas la porte d’entrée générale ; revalidation via `users/{userId}/units`, en-tête du cookie de compte ; unité racine avec `path.names: null` acceptée.
 - Profil réel via `/api/sessions`. Historique commandes : réponse réelle vide. Devis : source personnalisée quotes confirmée ; nouvel adaptateur filtré sous session acheteur codé, accès réel à qualifier. Détail commande, documents et renouvellement non vérifiés avec une commande réelle disponible.
 - Brouillons sauvegardés dans la session opaque, perdus à la déconnexion/expiration/redémarrage/changement d’unité ; CSV pour conservation durable.
-- Sessions locales en mémoire, 30 min, cookies HttpOnly/SameSite strict. Authentification désactivée en production. Avant Vercel : décider du flux d’authentification, puis adapter stockage partagé, domaines/origines autorisés, HTTPS/Secure, expiration/révocation et autorisations. Changements de code nécessaires, pas seulement variables d’environnement.
+- Sessions locales en mémoire, 4 h (SESSION_TTL_SECONDS, durée absolue ; expiration du jeton VTEX toujours contrôlée), cookies HttpOnly/SameSite strict. Authentification désactivée en production. Avant Vercel : décider du flux d’authentification, puis adapter stockage partagé, domaines/origines autorisés, HTTPS/Secure, expiration/révocation et autorisations. Changements de code nécessaires, pas seulement variables d’environnement.
 - ESLint fixé à 9.39.5 à cause de l’incompatibilité du plugin React avec ESLint 10. QA initiale du shell dans `design-qa.md`.
 
 ## Vérification et lancement
@@ -223,7 +223,7 @@ Liens à puces remplacés par des lignes pleine largeur, icône bâtiment, libel
 
 ## Adaptation Vercel — sessions partagées
 
-Projet customer-portal-volvo lié au dossier. Stockage partagé Upstash Redis REST implémenté pour production ; local conserve la Map. Cookie opaque HttpOnly/Secure, expiration 30 minutes, conservation serveur des cookies VTEX et brouillon/panier. Verrou Redis de 180 secondes pour les requêtes API d’une même session, sauvegarde conditionnée au propriétaire du verrou, révocation sans résurrection ; durée route limitée à 120 secondes. Pas de relance automatique des opérations distantes. Origine exacte customer-portal-volvo.vercel.app autorisée, aperçu interdit en production, limite login partagée par IP.
+Projet customer-portal-volvo lié au dossier. Stockage partagé Upstash Redis REST implémenté pour production ; local conserve la Map. Cookie opaque HttpOnly/Secure, expiration 4 heures (auparavant 30 minutes), conservation serveur des cookies VTEX et brouillon/panier. Verrou Redis de 180 secondes pour les requêtes API d’une même session, sauvegarde conditionnée au propriétaire du verrou, révocation sans résurrection ; durée route limitée à 120 secondes. Pas de relance automatique des opérations distantes. Origine exacte customer-portal-volvo.vercel.app autorisée, aperçu interdit en production, limite login partagée par IP.
 
 Déploiement fonctionnel en attente de configuration stockage : UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN absents du projet Vercel inspecté. Connexion bloquée tant qu’ils manquent. Connecter une base Upstash Redis au projet en Production, configurer PORTAL_ORIGIN=https://customer-portal-volvo.vercel.app, PORTAL_ENABLE_VTEX_LOGIN=true et PORTAL_ENABLE_PREVIEW=false, puis redéployer. Aucune base temporaire ou facturable créée. Recette réelle production (login/navigation/logout) à faire après raccordement.
 
@@ -238,3 +238,22 @@ Redis Marketplace connecté sous KV_REST_API_URL / KV_REST_API_TOKEN ; aliases p
 ## 22 septembre — scénarios flotte pour la démo
 
 Truck 147 : alerte usure → Brakes/FH13 Classic/référence 3095196. Truck 203 : nouvelle alerte illustrative entretien filtre à air → Filters/FM13 New/21337557MOBIT. CTA Find suggested parts sur panneau et fiche véhicule ; bandeau de contexte et retour à toutes les pièces. Catalogue réel, fixtures et absence de certification VIN explicites. Script dans docs/DEMO-VOLVO.md. Recette navigateur William attendue ; aucune écriture métier.
+
+
+## 22 septembre — onglet AI Assistant et canal WWC
+
+Nouvel onglet `ai-assistant` dans la navigation (entre Support / Dealer et My Profile), avec écran d'accueil et fil de conversation. Le socket WebChat est ouvert depuis le navigateur ; aucun cookie de session ne part vers Weni.
+
+Protocole isolé dans `src/domain/wwc.ts`, sans DOM ni réseau, donc testable : 14 tests dans `tests/wwc.test.ts`. Règles du guide `references/GUIA-WEBSOCKET-Y-CATALOGO.md` tenues explicitement — `catalog_message` lu par `retailer_id` (et non `product_retailer_id`), fusion des quatre sources de produits avec déduplication, historique `direction: "in"` = agent et trié du plus ancien au plus récent, horodatage en secondes promu en millisecondes, historique plus court jamais substitué au fil local. Le troisième segment du `retailer_id` est une trade policy : il est analysé puis volontairement écarté, jamais transmis comme `?sc=`.
+
+Cycle de vie : enregistrement confirmé par le premier frame non-`forbidden` (y compris un ping précoce, marqué prêt avant le pong), `forbidden` terminal sans reconnexion, reconnexion avec backoff jusqu'à 15 s en réutilisant le même `from` conservé en `sessionStorage`. Un socket remplacé ne peut plus écrire dans l'état ni déclencher de reconnexion.
+
+Paramètres du canal relevés dans le bootstrap du widget natif (`.../apptypes/wwc/bb4a6378-.../script.js` — cet identifiant est celui de l'**intégration**, distinct de celui du **canal**) : `wss://websocket.weni.ai/ws`, `https://flows.weni.ai`, canal `6d7f6ee7-884a-4070-b9ad-8f9212991965`. Variables `NEXT_PUBLIC_WENI_*` dans `.env.example`. Handshake vérifié en réel : `register` accepté, `ready_for_message` reçu, y compris après remontage avec le même `from`.
+
+L'accueil n'affiche que des données existantes : véhicules, compteurs et suggestions viennent de `domain/fleet.ts`, donc les fixtures de démonstration. Le salut utilise le prénom de `context.user.name`, lu à la connexion depuis `shopper.firstName/lastName` de `/api/sessions` (même source que My Profile) ; à défaut, l'identifiant de connexion est conservé. Ni micro ni pièce jointe : le canal les désactive (`showVoiceRecordingButton`, `showCameraButton`).
+
+Contrôles : typecheck, lint, build réussis ; 71 tests, 70 réussis, 1 sauté (scénario HTTP). Rendu vérifié en HTTP sous session preview.
+
+**Reste ouvert.** Allowlist d'origines à déclarer sur la plateforme pour `http://127.0.0.1:3000` et `https://customer-portal-volvo.vercel.app`, sinon le canal renvoie `forbidden`. Aucun message n'a été envoyé à l'agent : le parcours complet (réponse, catalogue) reste à recetter. Panier interne ajouté (23 septembre), aligné sur le widget natif hors boutique VTEX (`views/Cart.jsx` de weni-ai/webchat-react) : Add to cart sur chaque carte prix connu, bouton Cart avec compteur, panneau latéral Continue shopping / Place order. Place order envoie un seul message `order` (`product_items` : `product_retailer_id`, `name`, `price` liste, `sale_price`, `currency`, `image`, `description`, `seller_id`, `quantity`) ; bulle « Cart sent », jamais « commande passée ». Aucune écriture brouillon/panier portail ni orderForm VTEX ; la suite dépend du flow Weni. Panier en sessionStorage, vidé par New conversation. Recette William attendue.
+
+**Pont de jeton — conçu, non réalisé.** Les tools Weni tourneront sur l'infrastructure Weni et ne peuvent pas s'authentifier auprès du portail aujourd'hui : `requireSession()` ne lit la session que dans le cookie (`server/session.ts`), et `assertMutationOrigin` refuse toute requête sans l'`Origin` exact du portail (`server/security.ts`). Le cookie est `HttpOnly` et `SameSite=strict` : le navigateur ne peut ni le lire ni le transmettre. La voie retenue est un jeton opaque de courte durée, émis par le portail pour la session en cours, portée lecture seule, accompagné d'un secret partagé côté Weni. Sans lui, aucune tool ne peut identifier l'acheteur ni hériter de ses droits VTEX.

@@ -6,6 +6,7 @@ import { FleetList } from "@/components/fleet-list";
 // <<< CLAUDE
 // >>> CLAUDE — lot find parts, 20/09/2026 — à relire
 import { FindParts } from "@/components/find-parts";
+import { AiAssistant } from "@/components/ai-assistant";
 import { parseSelectedFacets } from "@/domain/parts";
 // <<< CLAUDE
 
@@ -88,6 +89,8 @@ export default async function Page({
              La flotte porte son propre titre « My fleet », comme la maquette. */
       section === "fleet" ? (
         <FleetList selected={context.vehicle || undefined} />
+      ) : section === "ai-assistant" ? (
+        <AiAssistant context={context} />
       ) : (
         /* <<< CLAUDE */ <>
           <p className="eyebrow">WANDERGARAGE · CUSTOMER PORTAL</p>

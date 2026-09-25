@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { BuyerContext } from "../domain/portal";
 import { PortalError } from "./security";
 import { buyerHeaders } from "./buyer-headers";
+import { getBuyerProfile } from "./account";
 
 const LOGIN_ORIGIN = "https://www.emeafaststore.com";
 const BUYER_ORIGIN = "https://volvoemea.myvtex.com";
@@ -95,8 +96,15 @@ export async function validateVtexSession(cookie: string) {
   const body: unknown = await response.json();
   const parsed = unitSchema.safeParse(body);
   if (!parsed.success) {
-    console.warn("VTEX context schema", parsed.error.issues.map(({ path, code }) => ({ path, code })));
-    throw new PortalError(502, "VTEX_CONTEXT_FORMAT", "Your account context returned an unexpected format.");
+    console.warn(
+      "VTEX context schema",
+      parsed.error.issues.map(({ path, code }) => ({ path, code })),
+    );
+    throw new PortalError(
+      502,
+      "VTEX_CONTEXT_FORMAT",
+      "Your account context returned an unexpected format.",
+    );
   }
   const { orgUnit } = parsed.data;
   return { claims, orgUnit };
@@ -164,24 +172,31 @@ export async function signInVtex(
     .map((item) => `${item.key}=${item.value}`)
     .join("; ");
   const { claims, orgUnit } = await validateVtexSession(cookie);
-  return {
-    cookie,
-    context: {
-      mode: "vtex",
-      user: {
-        id: claims.userId,
-        name: username,
-        username,
-        persona: "VTEX buyer session",
-      },
-      company:
-        orgUnit.path?.names?.split("/").filter(Boolean)[0] || orgUnit.name,
-      unit: { id: orgUnit.id, name: orgUnit.name },
-      contract: claims.customerId,
-      permissions: [],
-      permissionsVerified: false,
-      vehicle: "",
-      urgency: "Normal",
+  const context: BuyerContext = {
+    mode: "vtex",
+    user: {
+      id: claims.userId,
+      name: username,
+      username,
+      persona: "VTEX buyer session",
     },
+    company: orgUnit.path?.names?.split("/").filter(Boolean)[0] || orgUnit.name,
+    unit: { id: orgUnit.id, name: orgUnit.name },
+    contract: claims.customerId,
+    permissions: [],
+    permissionsVerified: false,
+    vehicle: "",
+    urgency: "Normal",
   };
+  // Display name from the shopper profile (same source as My Profile). Best effort:
+  // a failed or empty read keeps the login, and never blocks the sign-in.
+  try {
+    const profile = await getBuyerProfile({
+      context,
+      upstreamCookies: cookie,
+      expiresAt: 0,
+    });
+    if (profile.name) context.user.name = profile.name;
+  } catch {}
+  return { cookie, context };
 }

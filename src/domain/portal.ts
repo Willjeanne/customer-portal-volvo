@@ -44,6 +44,7 @@ export const navigation = [
   { slug: "organization", label: "My Organization", icon: "UsersThree" },
   { slug: "payments", label: "Payment Methods", icon: "CreditCard" },
   { slug: "support", label: "Support / Dealer", icon: "Headset" },
+  { slug: "ai-assistant", label: "AI Assistant", icon: "Sparkle" },
   { slug: "profile", label: "My Profile", icon: "UserCircle" },
 ] as const;
 export function canVisit(context: BuyerContext, slug: string): boolean {
