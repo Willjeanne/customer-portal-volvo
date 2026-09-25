@@ -6,6 +6,7 @@ export interface PortalSession {
   upstreamCookies?: string;
   checkoutCookies?: string;
   orderFormId?: string;
+  lastOrderCartId?: string;
   cartBusy?: boolean;
   preparation?: import("../domain/cart").Preparation & {
     channel: string;

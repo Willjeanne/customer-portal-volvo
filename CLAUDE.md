@@ -1,3 +1,61 @@
+## Ajout de pièces aux listes et publication — 25 septembre
+
+Ajout de Save parts to a replenishment list dans Quick Order et dans le détail d’une commande. Sélection d’une liste active accessible à l’acheteur ; résolution exacte références/SKU et productId catalogue avant toute écriture ; quantités fusionnées puis additionnées à celles existantes (plafond 9999). Les commandes sources sont relues via OMS sous l’identité acheteur. Mutations natives addListItem/updateListItem, puis relecture pour confirmer les quantités. Résultat partiel explicite en cas d’échec ; pas de relance automatique. Le service ne fournit pas ici une transaction multi-lignes : éviter les éditions simultanées de la même liste depuis plusieurs interfaces.
+
+Validation : typecheck/lint/build et six tests listes réussis, couvrant résolution, augmentation, refus de liste étrangère et erreur partielle. Recette des écritures réelles de remplissage encore attendue ; création de liste déjà validée par William. Utilisation : Quick Order ou détail commande → Choose a list → Add parts to list → Review saved list contents → contrôle prix/stock habituel. Une fréquence de liste ne déclenche pas de commande automatique.
+
+William demande la publication de tous les changements sur GitHub et Vercel. Inclus : checkout Promissory et diagnostics, affichage dynamique des autres moyens (non raccordés à la soumission), listes création/remplissage, documentation. Carte et véritable bank transfer restent ouverts. Aucune transaction réelle supplémentaire effectuée par Codex.
+
+## Création de listes — 25 septembre
+
+La liste Oil replenishment for truck 123 & 147 est visible selon la capture William : lecture réelle confirmée. Ajout local d’un bouton Create a list sur /lists et formulaire nom (80 caractères), description (280), fréquence none/weekly/biweekly/monthly. Mutation native createList(input: CreateListInput!) du même provider que FastStore ; identité acheteur serveur, validation stricte et contrôle de session/origine existants. Rafraîchissement de la liste après succès ; doubles clics bloqués et échec ambigu signalé sans relance automatique.
+
+Limite explicite : crée une liste vide. Ajout de pièces, création depuis commandes/draft et édition restent ouverts ; ne pas présenter ces parcours comme réalisés. Aucun changement du contrat ou du budget. Typecheck/lint et trois tests listes réussis. Création réelle non exécutée par Codex ; recette William attendue. Non publié.
+
+## Listes de réapprovisionnement — lecture débloquée, 25 septembre
+
+William confirme que la nouvelle commande apparaît maintenant dans Orders : retirer le point de visibilité en attente pour cette commande.
+
+Comparaison effectuée avec src/features/replenishment-lists/lib/replenishmentApi.ts du FastStore Volvo : même endpoint /_v/private/graphql/v1, même provider vtex.replenishment-service@1.x et getLists/getListItems. Nouvelle lecture réelle depuis /lists local 3001, connecté en wandergarage-buyer : succès, tableau getLists vide. Le blocage GraphQL historique n’est plus reproduit. Aucune modification d’API nécessaire pour ce résultat.
+
+La capture William montre le formulaire Name & Create, avant création ; elle ne prouve pas une liste enregistrée. Nom de liste créée et login FastStore demandés afin de qualifier la visibilité avec la même identité. Ne pas conclure absence de listes dans toute l’organisation à partir du seul résultat de ce buyer. Lecture et préparation depuis une liste déjà codées ; création/édition dans le Customer Portal restent à raccorder, pas déclarées acquises. Prochaine étape : confirmer la liste source et tester son contenu → préparation sous l’identité autorisée, puis tranche de création conservant le service FastStore.
+
+## Paiements et commande confirmée — 25 septembre
+
+William fournit une capture OMS de 1664170500031-01 : 956 USD, Promissory, transaction autorisée, fenêtre d’annulation. Création réelle confirmée par sa capture, sans attribuer ce résultat aux tests automatisés. La liste portail fournie ne contient pas cette référence : visibilité/relecture à qualifier, ne pas déclarer toute la chaîne validée.
+
+Nouvelle demande : afficher les moyens du compte sans filtre Promissory. L’écran liste désormais tous les paymentSystems reçus pour le panier avec les libellés/descriptions VTEX. Les moyens non raccordés sont visibles et signalés, mais non sélectionnables pour éviter de les envoyer comme Promissory. Aucun libellé Bank transfer inventé, aucun identifiant de moyen fixé. La soumission reste limitée à Promissory ; prochaine tranche : qualifier le véritable contrat Bank transfer et brancher le parcours carte (données carte directement vers VTEX), puis recette et visibilité OMS dans Orders. Ce raccordement reste ouvert, pas présenté comme terminé.
+
+## Diagnostic du 25 septembre — échec du clic Place order
+
+Cause retrouvée dans les logs du serveur local 3001 : POST checkout-payment 401, POST checkout-place-order 401, GET checkout-order-status 401. La session locale avait expiré ; la soumission a été refusée avant la création de transaction VTEX. Aucun indice de refus budgétaire sur cette tentative. William ne voyait rien car les erreurs étaient en haut du long écran, hors de la zone du bouton.
+
+Correctifs : erreur affichée près de la confirmation, message de session expirée avec lien Sign in again et soumission désactivée, attente visible et délais bornés pour la soumission/réconciliation. Les futures erreurs de transaction/paiement/processing conservent étape, statut HTTP et code machine VTEX borné, sans réponse brute. Les tentatives incertaines restent verrouillées sans resoumission automatique. Typecheck/lint et 7 tests checkout paiement réussis. Aucun achat envoyé, aucun push.
+
+Suite : se reconnecter, reconstituer/revoir le panier (la session locale précédente n’est pas récupérable automatiquement), puis recette finale William. Si VTEX refuse ensuite pour budget/approbation, examiner le code exact avec le profil courant. Source lecture budgets repérée dans FastStore getBudgets : /_v/store-front/customers/{customerId}/units/{contextId}/budgets ; aucune lecture réelle ni modification de budget effectuée. Ne pas confondre budget et permission PlaceOrders ; ne pas changer de profil pour contourner le refus.
+
+## Recette du 24 septembre — checkout réel avant soumission
+
+Codex a testé dans le navigateur local 3001 : connexion wandergarage-buyer, référence 3095196 → SKU 1437, quantité 1, prix 1 516,39 USD, transfert panier, adresse existante WanderGarage, livraison Standard à 5 USD / 3bd, sélection et sauvegarde Promissory. Total confirmé : 1 521,39 USD. Paiement et livraison persistent après rechargement. La case de confirmation active le bouton Place order ; elle a été décochée ensuite. Aucune transaction/commande réelle n’a été soumise. Le panier de test reste ouvert pour William.
+
+Défaut trouvé et corrigé : React Strict Mode lançait deux lectures concurrentes au montage du checkout, provoquant CART_BUSY. La promesse de lecture complète est maintenant réutilisée lors du rejeu de l’effet ; deux chargements navigateur après correction réussis.
+
+Validation technique : 62 tests automatisés réussis ; le test HTTP jusque-là sauté a été exécuté séparément et réussi sur 3001 (isolation, CSRF, permissions, logout). Son origine est désormais configurable par PORTAL_TEST_ORIGIN, par défaut 3000. Typecheck et lint passent. Reste à valider : transaction réelle, réponse gateway et affichage de confirmation avec une commande effectivement soumise. Promissory est confirmé disponible ; Net 60 n’est pas affiché par la réponse observée. Aucun push.
+
+## Checkout Promissory — 24 septembre 2026
+
+Décision William : terminer le checkout dans le Customer Portal, Promissory seul pour la démo Volvo ; carte bancaire reportée. La capture montre Notes Payable / Net 60 actif, mais ce libellé n’est pas imposé au panier : le portail utilise uniquement les méthodes/conditions effectivement retournées par VTEX, sans présenter Promissory comme un virement déjà effectué.
+
+**Codé localement, recette réelle encore attendue :** sélection et sauvegarde du paiement, récapitulatif adresse/articles/total, confirmation explicite puis transaction → paiement Promissory → gatewayCallback, écran de confirmation dans le shell Volvo et lien Orders. Prix, livraison et autorisation d’achat sont relus avant la soumission. Les cartes et paiements mixtes ne passent pas dans ce parcours. Le checkout livraison conserve sa limite actuelle : adresses déjà disponibles et livraison non planifiée.
+
+Protection contre les doubles achats : réservation par panier persistée dans Redis avant l’appel de transaction (mémoire uniquement en développement), sans expiration automatique. Un timeout/crash/refus après cette réservation bloque toute nouvelle soumission du même panier et montre un état à confirmer, jamais « payé ». Les tentatives incertaines nécessitent vérification dans VTEX ; pas de suppression automatique de leur verrou. Après succès, le prochain transfert prépare un nouveau panier. Aucun identifiant de transaction n’est échangé entre deux requêtes du navigateur : les trois étapes Promissory se déroulent dans une seule requête serveur, sans données carte.
+
+Validation : typecheck, lint et build réussis ; suite existante 60 réussis / 1 scénario HTTP sauté, puis deux tests supplémentaires ciblés réussis (échec paiement et persistance Redis). Six tests de paiement au total. Aucune commande ni paiement réel envoyé, aucune recette navigateur longue. Contrat et disponibilité Promissory du panier Volvo restent à qualifier en réel ; aucune garantie de paiement acquitté. Pas de push/déploiement pour ce lot à ce stade.
+
+Prochaine action William : Quick Order → panier → Checkout → adresse → livraison → Save payment method → vérifier le total → confirmation → Place order. Vérifier la référence et sa présence dans Orders. Si Promissory est absent ou un statut incertain apparaît, transmettre le message/la référence avant toute autre tentative. My Organization reste gelé ; devis/listes gardent leurs dépendances ; l’onglet IA reste au collègue CX.
+
+Sources techniques : https://developers.vtex.com/docs/guides/creating-a-regular-order-from-an-existing-cart et https://developers.vtex.com/docs/guides/orderform-fields.
+
 @AGENTS.md
 
 ## Priorité courante — démo Volvo (décision William, 21 septembre)

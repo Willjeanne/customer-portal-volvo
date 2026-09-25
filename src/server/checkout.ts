@@ -1,4 +1,5 @@
 import "server-only";
+import { assertCartEditable } from "./order-attempts";
 import { createHash } from "node:crypto";
 import {
   checkoutFormSchema,
@@ -11,7 +12,7 @@ import type { PortalSession } from "./session-store";
 import { PortalError } from "./security";
 import { mayPlaceOrders } from "./purchase-permission";
 
-function view(form: CheckoutForm): CheckoutView {
+export function checkoutView(form: CheckoutForm): CheckoutView {
   const { orderFormId, ...data } = form;
   return {
     ...data,
@@ -20,7 +21,7 @@ function view(form: CheckoutForm): CheckoutView {
       .digest("hex"),
   };
 }
-async function current(session: PortalSession) {
+export async function currentCheckout(session: PortalSession) {
   if (!session.orderFormId)
     throw new PortalError(
       409,
@@ -41,18 +42,19 @@ async function current(session: PortalSession) {
   return form;
 }
 export async function readCheckout(session: PortalSession) {
-  return view(await current(session));
+  return checkoutView(await currentCheckout(session));
 }
 export async function updateShipping(session: PortalSession, body: unknown) {
   const input = shippingInput.parse(body);
+  await assertCartEditable(session);
   if (!(await mayPlaceOrders(session)))
     throw new PortalError(
       403,
       "PURCHASE_DENIED",
       "Purchasing is not authorized for this account.",
     );
-  const form = await current(session);
-  if (view(form).revision !== input.revision)
+  const form = await currentCheckout(session);
+  if (checkoutView(form).revision !== input.revision)
     throw new PortalError(
       409,
       "CHECKOUT_CHANGED",
@@ -155,5 +157,5 @@ export async function updateShipping(session: PortalSession, body: unknown) {
       "The updated cart could not be confirmed. Reload checkout.",
     );
   session.preparation = undefined;
-  return view(updated);
+  return checkoutView(updated);
 }

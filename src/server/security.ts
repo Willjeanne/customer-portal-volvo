@@ -1,4 +1,6 @@
 export class PortalError extends Error {
+  upstreamStatus?: number;
+  upstreamCode?: string;
   constructor(
     public status: number,
     public code: string,

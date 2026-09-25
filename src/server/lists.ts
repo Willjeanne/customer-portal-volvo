@@ -16,11 +16,11 @@ const itemSchema = z.object({
   preferredQuantity: z.number().int().min(1).max(9999),
 });
 const provider = '@context(provider: "vtex.replenishment-service@1.x")';
-async function query<T>(
+export async function listQuery<T>(
   session: PortalSession,
   query: string,
   schema: z.ZodType<T>,
-  variables: Record<string, string> = {},
+  variables: Record<string, unknown> = {},
 ) {
   if (session.context.mode !== "vtex" || !session.upstreamCookies)
     throw new PortalError(
@@ -97,7 +97,7 @@ async function query<T>(
 }
 export async function getBuyerLists(session: PortalSession) {
   return (
-    await query(
+    await listQuery(
       session,
       `query PortalLists { getLists ${provider} { id name description itemCount status } }`,
       z.object({ getLists: z.array(listSchema) }),
@@ -110,11 +110,30 @@ export async function getBuyerListItems(session: PortalSession, id: string) {
     .regex(/^[A-Za-z0-9-]{1,80}$/)
     .parse(id);
   return (
-    await query(
+    await listQuery(
       session,
       `query PortalListItems($listId: ID!) { getListItems(listId: $listId) ${provider} { id skuId preferredQuantity } }`,
       z.object({ getListItems: z.array(itemSchema).max(200) }),
       { listId },
     )
   ).getListItems;
+}
+
+export const createListInput = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    description: z.string().trim().max(280).optional(),
+    cadenceType: z.enum(["none", "weekly", "biweekly", "monthly"]),
+  })
+  .strict();
+export async function createBuyerList(session: PortalSession, body: unknown) {
+  const input = createListInput.parse(body);
+  return (
+    await listQuery(
+      session,
+      `mutation PortalCreateList($input: CreateListInput!) { createList(input: $input) ${provider} { id name description itemCount status } }`,
+      z.object({ createList: listSchema }),
+      { input: { ...input, sourceType: "manual" } },
+    )
+  ).createList;
 }

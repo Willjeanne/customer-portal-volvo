@@ -1,5 +1,6 @@
 import { mayPlaceOrders } from "./purchase-permission";
 import "server-only";
+import { assertCartEditable } from "./order-attempts";
 import { randomUUID } from "node:crypto";
 import { Cookie, CookieJar } from "tough-cookie";
 import { z } from "zod";
@@ -116,19 +117,30 @@ export async function checkoutRequest<T>(
     await jar.setCookie(cookie, url);
   }
   session.checkoutCookies = JSON.stringify(jar.serializeSync());
-  if (!response.ok)
-    throw new PortalError(
+  if (!response.ok) {
+    const failure = new PortalError(
       response.status === 401 || response.status === 403 ? 403 : 502,
       "CART_UNAVAILABLE",
       `VTEX could not complete this operation (HTTP ${response.status}).`,
     );
-  const payload: unknown = await response.json().catch(() => {
-    throw new PortalError(
-      502,
-      "CART_RESPONSE",
-      "VTEX returned a non-JSON response.",
-    );
-  });
+    failure.upstreamStatus = response.status;
+    const detail = await response.json().catch(() => null);
+    // Retain only a bounded machine code, never the raw payload or customer data.
+    const code = detail?.error?.code ?? detail?.code;
+    if (typeof code === "string" && /^[A-Za-z0-9_.-]{1,80}$/.test(code))
+      failure.upstreamCode = code;
+    throw failure;
+  }
+  const payload: unknown =
+    response.status === 204
+      ? null
+      : await response.json().catch(() => {
+          throw new PortalError(
+            502,
+            "CART_RESPONSE",
+            "VTEX returned a non-JSON response.",
+          );
+        });
   const parsed = schema.safeParse(payload);
   if (!parsed.success)
     throw new PortalError(
@@ -320,6 +332,7 @@ export async function prepareCart(
 }
 
 export async function transferCart(session: PortalSession, id: string) {
+  await assertCartEditable(session);
   const saved = session.preparation;
   if (
     !saved ||

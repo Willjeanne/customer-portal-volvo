@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getBuyerLists, getBuyerListItems } from "../src/server/lists";
+import {
+  getBuyerLists,
+  getBuyerListItems,
+  createBuyerList,
+} from "../src/server/lists";
 import { makePreviewContext } from "../src/domain/fixtures";
 test("lists use fixed read queries and never treat GraphQL errors as empty lists", async (t) => {
   const context = makePreviewContext("buyer");
@@ -56,4 +60,62 @@ test("list contract failure differs from denied access and invalid responses", a
   });
   invalidJson = true;
   await assert.rejects(getBuyerLists(session), { code: "LISTS_RESPONSE" });
+});
+
+test("list creation uses the native mutation with validated fields and shopper identity", async (t) => {
+  const session = {
+    context: { ...makePreviewContext("buyer"), mode: "vtex" as const },
+    expiresAt: Date.now() + 10000,
+    upstreamCookies: "VtexIdclientAutCookie_volvoemea=test",
+  };
+  let calls = 0;
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (_url: string, init: RequestInit) => {
+      calls++;
+      const body = JSON.parse(String(init.body));
+      assert.ok(body.query.startsWith("mutation PortalCreateList"));
+      assert.deepEqual(body.variables.input, {
+        name: "Workshop",
+        description: "Oil",
+        cadenceType: "monthly",
+        sourceType: "manual",
+      });
+      assert.equal(init.cache, "no-store");
+      return Response.json({
+        data: {
+          createList: {
+            id: "new-list",
+            name: "Workshop",
+            description: "Oil",
+            itemCount: 0,
+            status: "active",
+          },
+        },
+      });
+    },
+  );
+  await assert.rejects(
+    createBuyerList(session, { name: "", cadenceType: "none" }),
+  );
+  await assert.rejects(
+    createBuyerList(session, {
+      name: "Workshop",
+      cadenceType: "none",
+      contractId: "foreign",
+    }),
+  );
+  assert.equal(calls, 0);
+  assert.equal(
+    (
+      await createBuyerList(session, {
+        name: " Workshop ",
+        description: "Oil",
+        cadenceType: "monthly",
+      })
+    ).id,
+    "new-list",
+  );
+  assert.equal(calls, 1);
 });

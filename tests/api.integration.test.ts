@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const origin = "http://127.0.0.1:3000";
+const origin = process.env.PORTAL_TEST_ORIGIN || "http://127.0.0.1:3000";
 const run = process.env.PORTAL_INTEGRATION_TESTS === "true";
 test(
   "local API: session isolation, CSRF, scope denial, context reset and logout",

@@ -1,8 +1,18 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import type { CheckoutView } from "@/domain/checkout";
+import {
+  promissoryOptions,
+  type CheckoutView,
+  type OrderOutcome,
+} from "@/domain/checkout";
 export function Checkout() {
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [outcome, setOutcome] = useState<OrderOutcome | null>(null);
+  const submitting = useRef(false);
+  const [submissionLocked, setSubmissionLocked] = useState(false);
+  const [paymentSystem, setPaymentSystem] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
   const [cart, setCart] = useState<CheckoutView | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -10,6 +20,8 @@ export function Checkout() {
   const [options, setOptions] = useState<Record<number, string>>({});
   function accept(data: CheckoutView) {
     setCart(data);
+    setConfirmed(false);
+    setPaymentSystem(data.paymentData?.payments[0]?.paymentSystem || "");
     setAddress(data.shippingData?.selectedAddresses[0]?.addressId || "");
     setOptions(
       Object.fromEntries(
@@ -20,14 +32,35 @@ export function Checkout() {
       ),
     );
   }
+  const initialRequest = useRef<Promise<{
+    status: OrderOutcome | null;
+    cart: CheckoutView | null;
+  }> | null>(null);
   useEffect(() => {
     let active = true;
-    fetch("/api/portal/checkout", { cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok)
-          throw new Error(data.error || "Checkout unavailable.");
-        if (active) accept(data);
+    // React Strict Mode replays effects. Reuse the complete read (including
+    // JSON parsing) rather than starting a second competing cart operation.
+    initialRequest.current ??= (async () => {
+      const response = await fetch("/api/portal/checkout-order-status", {
+        cache: "no-store",
+      });
+      const status = await response.json();
+      if (!response.ok)
+        throw new Error(status.error || "Order status unavailable.");
+      if (status) return { status, cart: null };
+      const cartResponse = await fetch("/api/portal/checkout", {
+        cache: "no-store",
+      });
+      const data = await cartResponse.json();
+      if (!cartResponse.ok)
+        throw new Error(data.error || "Checkout unavailable.");
+      return { status: null, cart: data };
+    })();
+    initialRequest.current
+      .then((result) => {
+        if (!active) return;
+        if (result.status) setOutcome(result.status);
+        else if (result.cart) accept(result.cart);
       })
       .catch((error) => {
         if (active) setError(error.message);
@@ -36,12 +69,12 @@ export function Checkout() {
       active = false;
     };
   }, []);
-  async function refresh(body?: unknown) {
+  async function refresh(body?: unknown, operation = "checkout-shipping") {
     setBusy(true);
     setError("");
     try {
       const response = await fetch(
-        `/api/portal/${body ? "checkout-shipping" : "checkout"}`,
+        `/api/portal/${body ? operation : "checkout"}`,
         body
           ? {
               method: "POST",
@@ -50,6 +83,7 @@ export function Checkout() {
             }
           : { cache: "no-store" },
       );
+      if (response.status === 401) setSessionExpired(true);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Checkout unavailable.");
       accept(data);
@@ -59,6 +93,56 @@ export function Checkout() {
       );
     } finally {
       setBusy(false);
+    }
+  }
+  async function submitOrder() {
+    if (!cart || !confirmed || submitting.current) return;
+    submitting.current = true;
+    setSubmissionLocked(true);
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/portal/checkout-place-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision: cart.revision, confirm: true }),
+        signal: AbortSignal.timeout(90000),
+      });
+      if (response.status === 401) setSessionExpired(true);
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(
+          data.error || "Order submission could not be confirmed.",
+        );
+      setOutcome(data);
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Order submission could not be confirmed.",
+      );
+      // Reconcile once, read-only. Never resubmit after a lost response.
+      try {
+        const response = await fetch("/api/portal/checkout-order-status", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(15000),
+        });
+        if (response.status === 401) setSessionExpired(true);
+        if (!response.ok) throw new Error();
+        const status = await response.json();
+        if (status) setOutcome(status);
+        else {
+          submitting.current = false;
+          setSubmissionLocked(false);
+        }
+      } catch {
+        setError(
+          "Submission status is unavailable. Reload checkout before continuing; do not place the order again.",
+        );
+      }
+    } finally {
+      setBusy(false);
+      setConfirmed(false);
     }
   }
   const money = (value: number) =>
@@ -74,8 +158,82 @@ export function Checkout() {
       ].map((a) => [a.addressId, a]),
     ).values(),
   ];
+  if (outcome)
+    return (
+      <section className="detail-panel checkout-confirmation" role="status">
+        <span className="eyebrow">CHECKOUT</span>
+        <h2>
+          {outcome.status === "submitted"
+            ? "Your order has been submitted"
+            : "Your order needs confirmation"}
+        </h2>
+        <p>
+          {outcome.status === "submitted"
+            ? "VTEX has accepted the order for processing. Payment will follow your Promissory terms; this is not a payment receipt."
+            : "We cannot confirm that every step completed. No new purchase will be attempted for this cart. Check your orders before continuing."}
+        </p>
+        {outcome.failure && (
+          <p role="alert">
+            Step: {outcome.failure.stage} · {outcome.failure.code}
+            {outcome.failure.httpStatus
+              ? ` · HTTP ${outcome.failure.httpStatus}`
+              : ""}
+            {outcome.failure.upstreamCode
+              ? ` · VTEX ${outcome.failure.upstreamCode}`
+              : ""}
+            . Share this information with support to check the refusal and any
+            budget or approval requirements.
+          </p>
+        )}
+        <dl>
+          <dt>
+            {outcome.orderGroup ? "Order reference" : "Support reference"}
+          </dt>
+          <dd>{outcome.orderGroup || outcome.reference}</dd>
+          <dt>Total</dt>
+          <dd>
+            {new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: outcome.currency,
+            }).format(outcome.value / 100)}
+          </dd>
+        </dl>
+        <div className="checkout-actions">
+          <Link className="button primary" href="/orders">
+            View orders
+          </Link>
+          <Link className="button secondary" href="/home">
+            Back to dashboard
+          </Link>
+        </div>
+      </section>
+    );
+  const methods = cart ? promissoryOptions(cart) : [];
+  const availableMethods = cart?.paymentData?.paymentSystems || [];
+  const savedPayment = cart?.paymentData?.payments[0];
+  const paymentSaved =
+    !!savedPayment &&
+    methods.some((m) => String(m.id) === savedPayment.paymentSystem) &&
+    savedPayment.value === cart?.value;
+  const deliverySaved =
+    !!cart?.items.length &&
+    cart.items.every(
+      (item, index) =>
+        !item.quantity ||
+        cart.shippingData?.logisticsInfo.some(
+          (l) =>
+            l.itemIndex === index &&
+            l.selectedSla &&
+            l.selectedDeliveryChannel === "delivery",
+        ),
+    );
+  const deliveryDirty =
+    address !== (cart?.shippingData?.selectedAddresses[0]?.addressId || "") ||
+    cart?.shippingData?.logisticsInfo.some(
+      (l) => (options[l.itemIndex] || "") !== (l.selectedSla || ""),
+    );
   return (
-    <>
+    <div className="portal-checkout">
       <Link href="/quick-order">Back to order preparation</Link>
       <button
         className="button secondary"
@@ -84,7 +242,11 @@ export function Checkout() {
       >
         Reload checkout
       </button>
-      {error && <p role="alert">{error}</p>}
+      {error && !cart && (
+        <p role="alert">
+          {error} <Link href="/login">Sign in again</Link>
+        </p>
+      )}
       {!cart ? (
         <p>{error ? "Checkout could not be loaded." : "Loading your cart…"}</p>
       ) : (
@@ -94,7 +256,7 @@ export function Checkout() {
             {!cart.items.length ? (
               <p>Your cart is empty.</p>
             ) : (
-              <table className="orders-table">
+              <table className="orders-table checkout-items">
                 <thead>
                   <tr>
                     <th>Part</th>
@@ -147,7 +309,10 @@ export function Checkout() {
                   <select
                     value={address}
                     disabled={busy}
-                    onChange={(e) => setAddress(e.target.value)}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setConfirmed(false);
+                    }}
                     required
                   >
                     <option value="">Choose an address</option>
@@ -251,7 +416,95 @@ export function Checkout() {
             </form>
           </section>
           <section className="detail-panel">
-            <h2>Order summary</h2>
+            <h2>4. Payment</h2>
+            <p>Payment methods returned by VTEX for your current cart.</p>
+            <ul aria-label="Available payment methods">
+              {availableMethods.map((method) => (
+                <li key={method.id}>
+                  <strong>{method.name}</strong>
+                  {method.description ? ` — ${method.description}` : ""}
+                  {!methods.some((supported) => supported.id === method.id) && (
+                    <span> · Not yet supported in this portal</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {!availableMethods.length ? (
+              <p role="status">
+                No payment method is currently offered for this cart. Save
+                delivery and reload checkout to check again.
+              </p>
+            ) : (
+              <form
+                className="draft-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  refresh(
+                    {
+                      revision: cart.revision,
+                      paymentSystem: Number(paymentSystem),
+                    },
+                    "checkout-payment",
+                  );
+                }}
+              >
+                <label>
+                  Payment method
+                  <select
+                    required
+                    disabled={busy}
+                    value={paymentSystem}
+                    onChange={(e) => {
+                      setPaymentSystem(e.target.value);
+                      setConfirmed(false);
+                    }}
+                  >
+                    <option value="">Choose payment</option>
+                    {availableMethods.map((m) => (
+                      <option
+                        key={m.id}
+                        value={m.id}
+                        disabled={
+                          !methods.some((supported) => supported.id === m.id)
+                        }
+                      >
+                        {m.name}
+                        {m.description ? ` — ${m.description}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="button primary"
+                  disabled={
+                    busy ||
+                    !methods.some((m) => String(m.id) === paymentSystem) ||
+                    !deliverySaved ||
+                    !!deliveryDirty
+                  }
+                >
+                  Save payment method
+                </button>
+              </form>
+            )}
+          </section>
+          <section className="detail-panel">
+            <h2>5. Review and place order</h2>
+            <p>
+              <strong>Deliver to:</strong>{" "}
+              {cart.shippingData?.selectedAddresses
+                .map((a) =>
+                  [a.receiverName, a.street, a.number, a.city, a.postalCode]
+                    .filter(Boolean)
+                    .join(", "),
+                )
+                .join(" · ") || "Not selected"}
+            </p>
+            <p>
+              <strong>Payment:</strong>{" "}
+              {methods.find((m) => String(m.id) === savedPayment?.paymentSystem)
+                ?.name || "Not selected"}
+            </p>
             <dl>
               {cart.totalizers.map((t) => (
                 <div key={t.id}>
@@ -262,13 +515,61 @@ export function Checkout() {
               <dt>Total</dt>
               <dd>{money(cart.value)}</dd>
             </dl>
-            <p>
-              Payment and order confirmation are the next step under
-              development. No order has been placed.
+            {sessionExpired ? (
+              <p role="alert" className="checkout-error">
+                Your session has expired. This request could not be completed.{" "}
+                <Link href="/login">Sign in again</Link> to review your cart
+                before continuing.
+              </p>
+            ) : (
+              error && (
+                <p role="alert" className="checkout-error">
+                  {error}
+                </p>
+              )
+            )}
+            {busy && submissionLocked && (
+              <p role="status">
+                Submitting your order to VTEX. Please keep this page open…
+              </p>
+            )}
+            <label className="checkout-consent">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                disabled={
+                  busy ||
+                  !paymentSaved ||
+                  !deliverySaved ||
+                  !!deliveryDirty ||
+                  paymentSystem !== savedPayment?.paymentSystem
+                }
+                onChange={(e) => setConfirmed(e.target.checked)}
+              />
+              I confirm the items, delivery and total shown above.
+            </label>
+            <button
+              className="button primary"
+              disabled={
+                busy ||
+                submissionLocked ||
+                sessionExpired ||
+                !confirmed ||
+                !paymentSaved ||
+                !deliverySaved ||
+                !!deliveryDirty ||
+                paymentSystem !== savedPayment?.paymentSystem
+              }
+              onClick={submitOrder}
+            >
+              {busy ? "Please wait…" : `Place order · ${money(cart.value)}`}
+            </button>
+            <p className="muted">
+              Your order will be submitted using the saved payment method.
             </p>
           </section>
         </>
       )}
-    </>
+    </div>
   );
 }

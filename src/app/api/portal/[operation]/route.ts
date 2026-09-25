@@ -1,3 +1,7 @@
+import { populateBuyerList } from "@/server/list-items";
+import { createBuyerList, getBuyerLists } from "@/server/lists";
+import { updatePayment, placeOrder } from "@/server/checkout-payment";
+import { orderStatus } from "@/server/order-attempts";
 import {
   createCostCenter,
   createOrganizationUser,
@@ -83,9 +87,11 @@ async function handleGET(
     assertLocalRuntime();
     const operation = (await params).operation;
     if (
+      operation !== "lists" &&
       operation !== "context" &&
       operation !== "draft" &&
       operation !== "cart" &&
+      operation !== "checkout-order-status" &&
       operation !== "checkout"
     )
       return respond({ error: "Not found" }, 404);
@@ -102,6 +108,9 @@ async function handleGET(
           "Your buyer context changed. Please sign in again.",
         );
     }
+    if (operation === "lists") return respond(await getBuyerLists(session));
+    if (operation === "checkout-order-status")
+      return respond(await orderStatus(session));
     if (operation === "checkout")
       return respond(await cartOperation(session, () => readCheckout(session)));
     if (operation === "cart")
@@ -128,7 +137,7 @@ async function handlePOST(
     const raw = await request.text();
     if (
       raw.length >
-      (["draft", "prepare-cart", "checkout-shipping"].includes(
+      (["draft", "prepare-cart", "checkout-shipping", "populate-list"].includes(
         (await params).operation,
       )
         ? 30000
@@ -206,7 +215,11 @@ async function handlePOST(
       operation === "prepare-cart" ||
       operation === "transfer-cart" ||
       operation === "checkout-handoff" ||
+      operation === "checkout-payment" ||
+      operation === "checkout-place-order" ||
       operation === "checkout-shipping" ||
+      operation === "populate-list" ||
+      operation === "create-list" ||
       operation === "create-cost-center" ||
       operation === "create-organization-user"
     ) {
@@ -226,10 +239,18 @@ async function handlePOST(
                 "Your buyer context changed. Please sign in again.",
               );
           }
+          if (operation === "populate-list")
+            return populateBuyerList(session, body);
+          if (operation === "create-list")
+            return createBuyerList(session, body);
           if (operation === "create-cost-center")
             return createCostCenter(session, body);
           if (operation === "create-organization-user")
             return createOrganizationUser(session, body);
+          if (operation === "checkout-payment")
+            return updatePayment(session, body);
+          if (operation === "checkout-place-order")
+            return placeOrder(session, body);
           if (operation === "checkout-shipping")
             return updateShipping(session, body);
           if (operation === "checkout-handoff") {

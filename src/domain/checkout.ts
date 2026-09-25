@@ -60,6 +60,42 @@ export const checkoutFormSchema = z.object({
         .default([]),
     })
     .nullish(),
+  paymentData: z
+    .object({
+      updateStatus: z.string().nullish(),
+      paymentSystems: z.array(
+        z.object({
+          id: z.number().int(),
+          name: z.string(),
+          groupName: z.string(),
+          description: z.string().nullish(),
+        }),
+      ),
+      installmentOptions: z.array(
+        z.object({
+          paymentSystem: z.string(),
+          installments: z.array(
+            z.object({
+              count: z.number().int(),
+              value: z.number().int(),
+              total: z.number().int(),
+              interestRate: z.number(),
+              hasInterestRate: z.boolean(),
+            }),
+          ),
+        }),
+      ),
+      payments: z.array(
+        z.object({
+          paymentSystem: z.string(),
+          installments: z.number().int(),
+          value: z.number().int(),
+          referenceValue: z.number().int(),
+        }),
+      ),
+      giftCards: z.array(z.object({ inUse: z.boolean() })).optional(),
+    })
+    .nullish(),
   messages: z
     .array(
       z.object({ text: z.string().optional(), status: z.string().optional() }),
@@ -96,3 +132,46 @@ export const shippingInput = z.discriminatedUnion("action", [
     })
     .strict(),
 ]);
+
+export const paymentInput = z
+  .object({
+    revision: z.string().length(64),
+    paymentSystem: z.number().int().positive(),
+  })
+  .strict();
+export const placeOrderInput = z
+  .object({ revision: z.string().length(64), confirm: z.literal(true) })
+  .strict();
+export type OrderOutcome = {
+  failure?: {
+    stage: "transaction" | "payment" | "processing";
+    code: string;
+    httpStatus?: number;
+    upstreamCode?: string;
+  };
+  status: "processing" | "uncertain" | "submitted";
+  orderGroup?: string;
+  reference: string;
+  value: number;
+  currency: string;
+};
+export function promissoryOptions(
+  form: Pick<CheckoutForm, "paymentData" | "value">,
+) {
+  return (form.paymentData?.paymentSystems || []).filter(
+    (system) =>
+      system.groupName === "promissoryPaymentGroup" &&
+      form.paymentData?.installmentOptions.some(
+        (option) =>
+          option.paymentSystem === String(system.id) &&
+          option.installments.some(
+            (i) =>
+              i.count === 1 &&
+              !i.hasInterestRate &&
+              i.interestRate === 0 &&
+              i.total === form.value &&
+              i.value === form.value,
+          ),
+      ),
+  );
+}

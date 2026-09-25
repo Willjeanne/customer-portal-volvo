@@ -1,3 +1,4 @@
+import { CreateList } from "./create-list";
 import Link from "next/link";
 import { getBuyerLists, getBuyerListItems } from "@/server/lists";
 import { getBuyerOrder } from "@/server/account";
@@ -38,6 +39,7 @@ export async function ReplenishmentLists({
   return (
     <section className="detail-panel">
       <h2>Your saved lists</h2>
+      <CreateList />
       {!result.data.length ? (
         <p>No replenishment lists found.</p>
       ) : (

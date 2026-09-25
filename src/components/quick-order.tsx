@@ -1,4 +1,5 @@
 "use client";
+import { SaveToList } from "./save-to-list";
 import type { Preparation, CartResult, CartItem } from "@/domain/cart";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -474,6 +475,7 @@ export function QuickOrder({
           </table>
         </section>
       )}
+      <SaveToList lines={lines} />
     </>
   );
 }

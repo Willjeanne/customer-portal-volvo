@@ -1720,3 +1720,14 @@ select {
 .organization-unit-label > span { font-size:12px; color:#657185; }
 .organization-unit-row > svg { flex-shrink:0; color:#657185; }
 @media (max-width:600px) { .organization-unit-row { padding:14px 12px; gap:12px; } }
+
+/* Integrated portal checkout */
+.portal-checkout { display: grid; gap: 20px; }
+.portal-checkout .detail-panel { margin: 0; min-width: 0; }
+.checkout-items { width: 100%; table-layout: fixed; }
+.checkout-items th:first-child, .checkout-items td:first-child { width: 60%; white-space: normal; overflow-wrap: anywhere; }
+.checkout-consent { display: flex; align-items: center; gap: 12px; margin: 24px 0; }
+.checkout-consent input { width: 18px; height: 18px; flex-shrink: 0; }
+.checkout-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.checkout-confirmation dd { overflow-wrap: anywhere; }
+@media (max-width: 600px) { .checkout-items th, .checkout-items td { padding: 12px 5px; font-size: 12px; } .checkout-items th:first-child, .checkout-items td:first-child { width: 48%; } }
