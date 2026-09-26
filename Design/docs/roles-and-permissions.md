@@ -1,5 +1,7 @@
 # Roles and permission boundaries
 
+> **Référence de conception, pas preuve de droits live — 25 septembre 2026.** Le périmètre testé et les fonctions réellement raccordées figurent dans la [matrice courante](../../docs/MATRICE_CAPACITES_VOLVO.md). Les droits serveur VTEX prévalent sur les personas illustratifs.
+
 ## Customer / buyer experience — current approved scope
 
 The user acts inside organizations and locations they belong to. Typical roles include Organization Admin, Buyer, Senior Buyer, Approver, Workshop Manager, Fleet Manager and Read Only.

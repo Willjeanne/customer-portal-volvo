@@ -1,5 +1,7 @@
 # Implementation guidelines
 
+> **Guide de conception initial — 25 septembre 2026.** Pour la stack, les commandes, la configuration et la publication effectives, suivre le [README courant](../../README.md). Pour le code Next.js, lire également les guides de la version installée conformément à AGENTS.md.
+
 > Mise à jour de phase : William a autorisé le démarrage de la réalisation locale après ce cadrage. Les mentions de phase documentaire ci-dessous sont historiques. Voir [le suivi de réalisation](../../docs/SUIVI_REALISATION.md) pour l’état implémenté et les limites actuelles.
 
 ## Recommended architecture

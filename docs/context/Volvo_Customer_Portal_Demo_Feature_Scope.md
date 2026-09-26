@@ -1,6 +1,6 @@
 # Volvo Customer Portal — Demo Feature Scope
 
-> Source de périmètre conservée. Le [cadrage actif](../CADRAGE_PORTAIL_VOLVO.md) précise la séquence et les décisions courantes : toutes les fonctions My Account restent visées ; extensions custom possibles en complément de VTEX ; checkout traité par le programme global. Les exemples et instructions historiques ci-dessous ne valent pas autorisation de modifier le compte.
+> **Source de périmètre conservée — 25 septembre 2026.** Le [plan actif](../CADRAGE_PORTAIL_VOLVO.md) et la [matrice](../MATRICE_CAPACITES_VOLVO.md) décrivent les décisions et la livraison. Le checkout est désormais intégré au portail pour Promissory ; la couverture cible de ce document reste plus large que la démo livrée. Les exemples historiques ne valent pas preuve de données ou autorisation de mutation du compte.
 
 **Revised 18 September 2026 — scope alignment and delivery sequence.**
 

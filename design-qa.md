@@ -1,5 +1,7 @@
 # Design QA — socle local Volvo
 
+> **Rapport de QA visuelle historique, limité à la tranche décrite.** Mise au clair du 25 septembre 2026 : ce rapport n’est pas une recette de tous les écrans actuels. Espacement Lists et statuts anglais ont évolué localement ; Claims A/B a été ajouté. État courant dans la [matrice](docs/MATRICE_CAPACITES_VOLVO.md).
+
 **Scope:** première tranche, shell et accueil ; les quatre autres écrans de référence ne sont pas déclarés réalisés.
 
 **Source visual truth:** `Design/assets/screens/01-home-buyer.png` (1487 × 1058).

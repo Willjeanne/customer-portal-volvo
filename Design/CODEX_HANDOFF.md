@@ -2,7 +2,7 @@
 
 > Mise à jour de phase : William a autorisé le démarrage de la réalisation locale après ce cadrage. Les mentions de phase documentaire ci-dessous sont historiques. Voir [le suivi de réalisation](../docs/SUIVI_REALISATION.md) pour l’état implémenté et les limites actuelles.
 
-> Current authority: [active framing](../docs/CADRAGE_PORTAIL_VOLVO.md) and [decision register](../docs/DECISIONS_PORTAIL_VOLVO.md). This pack guides visual implementation; the current phase authorizes documentation only.
+> Current authority: [active framing](../docs/CADRAGE_PORTAIL_VOLVO.md) and [decision register](../docs/DECISIONS_PORTAIL_VOLVO.md). This pack guides visual implementation; implementation is underway and the portal is deployed; current delivery status is tracked in the active plan.
 
 ## Objective
 

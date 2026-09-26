@@ -1,3 +1,4 @@
+import { insightOrderSchema } from "../domain/insights";
 import "server-only";
 import { quoteFilters, quoteListSchema } from "../domain/quotes";
 import { orderDetailSchema, orderIdSchema } from "../domain/order";
@@ -73,4 +74,11 @@ export async function listBuyerQuotes(session: PortalSession, filters: {page:num
   if (input.status) params.set("status",input.status);
   if (input.label) params.set("label",input.label);
   return read(session, `https://volvoemea.vtexcommercestable.com.br/api/quoting/quotes?${params}`, quoteListSchema);
+}
+
+export async function getBuyerInsightOrder(session: PortalSession, orderId: string) {
+  const id = orderIdSchema.parse(orderId);
+  const order = await read(session, `https://volvoemea.vtexcommercestable.com.br/api/oms/user/orders/${encodeURIComponent(id)}`, insightOrderSchema);
+  if (order.orderId !== id) throw new PortalError(502, "ORDER_MISMATCH", "The returned order does not match your request.");
+  return order;
 }

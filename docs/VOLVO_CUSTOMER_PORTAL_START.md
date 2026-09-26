@@ -1,5 +1,7 @@
 # Volvo B2B Customer Portal — document de démarrage
 
+> **Source historique conservée — 25 septembre 2026.** Identifiants, montants et constats ci-dessous sont datés, pas un inventaire live du compte. Pour démarrer ou reprendre : [START](../START.md), [README](../README.md) et [plan courant](CADRAGE_PORTAIL_VOLVO.md).
+
 > Référence de démarrage conservée pour la provenance et les relevés historiques. Depuis la révision du 18 septembre 2026, lire [START.md](../START.md), le [cadrage actif](CADRAGE_PORTAIL_VOLVO.md) et le [registre](DECISIONS_PORTAIL_VOLVO.md) pour les instructions courantes. L’inventaire complet des API n’est plus un préalable à tout travail ; aucune implémentation n’est autorisée dans la phase documentaire actuelle.
 
 Date : 18 septembre 2026. Document à copier à la racine du futur dossier Customer Portal.

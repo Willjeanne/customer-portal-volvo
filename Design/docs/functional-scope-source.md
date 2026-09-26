@@ -1,5 +1,7 @@
 # Volvo Customer Portal — Demo Feature Scope
 
+> **Snapshot de périmètre conservé — 25 septembre 2026.** Cette copie ne décrit pas l’avancement. Les besoins restent conservés ; décisions et réalisation actuelles : [plan](../../docs/CADRAGE_PORTAIL_VOLVO.md), [matrice](../../docs/MATRICE_CAPACITES_VOLVO.md).
+
 > Frozen reference snapshot from the supplied design pack. Do not maintain this copy as a second active specification. Read the [source scope](../../docs/context/Volvo_Customer_Portal_Demo_Feature_Scope.md) for provenance and the [active framing](../../docs/CADRAGE_PORTAIL_VOLVO.md) for current scope, navigation, delivery sequence and custom-extension policy.
 
 **Revised 18 September 2026 — scope alignment and delivery sequence.**

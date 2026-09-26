@@ -1,5 +1,7 @@
 # Lot « import .xlsx » dans Quick Order — document de reprise
 
+> **Statut au 25 septembre 2026 : lot intégré ; import confirmé fonctionnel par William.** Le marquage « non relu » ci-dessous décrit la remise initiale. Voir le [suivi actuel](SUIVI_REALISATION.md). Aucune nouvelle mission sur Quick Order n’est implicite.
+
 > ⚠️ **Écrit par Claude le 20 septembre 2026**, sur mission de Codex. **Non relu.**
 > Marqueurs : en-tête `ÉCRIT PAR CLAUDE — lot « import xlsx »` sur les fichiers créés,
 > bornes `>>> CLAUDE — lot import xlsx` / `<<< CLAUDE` dans `quick-order.tsx`.

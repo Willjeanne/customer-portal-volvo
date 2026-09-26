@@ -1,5 +1,7 @@
 # Screen specifications
 
+> **Spécifications visuelles de référence — 25 septembre 2026.** Elles ne prouvent pas que chaque action est intégrée. Navigation et état de livraison : [plan actif](../../docs/CADRAGE_PORTAIL_VOLVO.md). Conserver le look and feel validé ; ne pas recopier des montants ou garanties illustratifs comme données réelles.
+
 > Visual reference details; use the [active framing](../../docs/CADRAGE_PORTAIL_VOLVO.md) for canonical navigation, WanderGarage data, implementation sequence and reconciliation rules. Mockup amounts and implied service behavior are not verified API capabilities.
 
 ## 1. Home

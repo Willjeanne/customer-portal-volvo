@@ -1,48 +1,41 @@
-# Sources des parcours — qualification ciblée
+# Sources des parcours — 25 septembre 2026
 
-20 septembre 2026. Le code sur disque prouve les appels prévus, pas le déploiement de chaque parcours. William a fourni `https://www.emeafaststore.com/pvt/account/create-quote` : le parcours devis personnalisé est la référence de données. Les wireframes et le look and feel du portail restent inchangés. La distinction des parcours listes reste à qualifier côté API.
+État établi à partir du code du portail et des qualifications déjà réalisées. Cette consolidation n’a effectué aucun nouvel appel VTEX. Le site emeafaststore est une référence de données ; les wireframes Volvo restent la référence visuelle.
 
-| Parcours local existant | Source constatée | Portée et décision |
+| Parcours | Source / implémentation du portail | Limite courante |
 |---|---|---|
-| Listes historiques, resolver getProductLists | Master Data PL | Recherche ownerEmail et organizationEmail/visibility. Distinct des listes de réapprovisionnement ; ne pas substituer l’un à l’autre. |
-| Réapprovisionnement, replenishmentApi.ts | GraphQL getLists/getListItems/CRUD, provider vtex.replenishment-service@1.x | Le portail reproduit cette lecture mais reçoit une erreur de validation GraphQL. Installation/contrat réellement actif à confirmer depuis le parcours visible. |
-| Validation et panier des listes | Routes poc-harness validate-items/add-to-cart ; client interne Master Data sur les entités vtex_replenishment_service_* | Ce service n’expose pas le CRUD des listes. Ses lectures internes servent aux contrôles de propriété avant persistance. Pas de remplacement direct de la lecture GraphQL par une route supposée. |
-| Devis personnalisés, features/quotes → getQuotes | Master Data quotes | Resolver existant avec clé applicative et sans filtre organisation visible : non réutilisable tel quel. Les prix d’articles sont en centimes dans l’UI existante. |
-| Devis natifs, client commerce FastStore → listUserQuotes | /api/quoting/quotes | Le portail utilise actuellement ce service, réponse vide constatée. Ce n’est pas une preuve de lecture des devis personnalisés. Mention explicite dans l’écran. |
-| Autorisation d’achat | License Manager Storefront BFF → ressource PlaceOrders | Clé documentée par VTEX ; transport repris de commerce.users.isResourceGranted. Nouvelle vérification côté serveur à la préparation et avant transfert. Réponse booléenne uniquement ; aucun privilège global déduit. Réponse réelle WanderGarage à tester. |
-| Panier portail | Checkout simulation puis orderForm, sous cookies acheteur conservés côté serveur | Simulation réelle constatée ; transfert et relecture du panier local ensuite validés manuellement par William. Le panier du site et le handoff ne sont pas encore qualifiés. |
+| Identité et session | Adaptateurs `src/server`, cookies acheteur serveur, session opaque | Connexion portail indépendante des cookies navigateur d’emeafaststore |
+| Permission d’achat | `purchase-permission.ts`, ressource PlaceOrders | Ne pas substituer granted-order-entry ni déduire d’un rôle affiché |
+| Catalogue | `parts.ts`, Intelligent Search | Offre publique, Application catalogue ; plafond moteur page 50 ; pas fitment VIN |
+| Préparation/panier | `draft.ts`, `cart.ts`, simulation et orderForm VTEX | Prix/stock/seller revalidés ; brouillon versionné |
+| Checkout | `checkout.ts`, `checkout-payment.ts` | Livraison et paiement rattachés au panier ; transaction → paiement Promissory → callback ; pas de carte intégrée |
+| Orders | `account.ts`, `/api/oms/user/orders` et détail par ID | Identité acheteur ; suivi/facture uniquement si présents |
+| Replenishment Lists | `lists.ts`, `list-items.ts` | GraphQL privé du storefront, provider `vtex.replenishment-service@1.x` ; getLists/getListItems/createList/addListItem/updateListItem |
+| Devis custom | `custom-quotes.ts`, Master Data `quotes`, schéma v1 | organizationId issu de profile.email ; pas de resolver applicatif global ; création non raccordée |
+| Devis natifs historiques | `/api/quoting/quotes`, lecture conservée dans account.ts | Distincts des devis custom affichés sur /quotes ; une réponse vide ne prouve rien sur ceux-ci |
+| Organisation | `organization.ts`, références clients Buyer Portal 2.0.27 | Arbre parent/enfant revalidé ; users/roles ; centres de coût = valeurs comptables du contrat |
+| Claims | `claims.ts`, `/api/portal/save-claim` | Stockage custom de démo du portail, pas une API SAV VTEX/Volvo |
+| Purchasing Insights | `insights.ts`, détails OMS, catalogue SKU exact et simulation Checkout | Remises via total Discounts, pas somme des priceTags ; qualification privée live ouverte, voir [dossier](PURCHASING-INSIGHTS.md) |
+| AI Assistant | `ai-assistant.tsx`, `domain/wwc.ts` | Canal WWC/Weni côté navigateur, produits des messages ; pas de cookies acheteur transmis au chat |
 
-Source officielle des ressources : https://developers.vtex.com/docs/guides/storefront-roles
+## Listes : blocage historique résolu
 
-Chemins de référence sous `/Users/williamjeanne/faststore-volvo/faststore-volvoemea` :
-- `src/graphql/thirdParty/resolvers/queryResolver.ts`
-- `src/features/replenishment-lists/lib/replenishmentApi.ts`
-- `src/features/quotes/hooks/useQuotesList.ts`
-- `io/poc-harness/node/service.json` et `node/clients/replenishmentStore.ts`
-- `node_modules/@faststore/api/src/platforms/vtex/clients/commerce/index.ts`
+Le rejet GraphQL 400 observé le 21 septembre n’est plus reproduit lors de la qualification du 25 septembre. William a confirmé une liste visible puis la création d’une nouvelle liste. Le portail utilise le même service natif que le front. Les demandes anciennes visant à confirmer l’installation ne sont donc plus le prochain blocage à traiter.
 
-Ne pas utiliser `granted-order-entry` comme synonyme de PlaceOrders : son usage local concerne l’accès à la page Order Entry. Ne pas supposer la B2B Suite installée pour qualifier le Buyer Portal.
+Les listes Master Data PL et les anciens resolvers getProductLists sont des parcours distincts : ne pas les utiliser comme substitut. Le remplissage de liste n’est pas une transaction multi-lignes ; le code relit les quantités, signale un résultat partiel et ne relance pas automatiquement.
 
-Le hook useCreateQuote confirme : mutation createQuote, organisation issue de person.email, auteur issu de b2b.userEmail, prix multipliés par 100 ; le resolver écrit dans quotes avec le schéma v1. Ces champs doivent être dérivés et contrôlés côté serveur dans le portail, pas simplement acceptés du navigateur.
+## Devis : dépendance toujours ouverte
 
+Le parcours `/pvt/account/create-quote` du site stocke `person.email` comme organizationId. Le portail cherche cette valeur dans `profile.email` de session. Lors de la dernière qualification, authentification valide mais champ absent, y compris après initialisation/actualisation de session. Cela précède la lecture Master Data : aucun refus de droit Master Data n’est établi par ce seul résultat.
 
-## Qualification réelle des devis — 20 septembre
+Question technique utile : « Quelle source serveur fournit exactement le contexte person.email / organizationId utilisé par create-quote pour WanderGarage, ou quelle étape initialise profile.email ? » Ne pas remplacer cette valeur par customerId ou email acheteur sans contrat confirmé.
 
-Connexion WanderGarage réussie ; authentication.storeUserId correspond au compte. POST /api/sessions retourne HTTP 201, mais profile est vide : profile.email absent. Confirmation avec le transport à cookies conservés : POST puis PATCH sur session existante, même absence. Aucune clé applicative utilisée, aucun panier ni devis créé.
+## Claims : contrat de démo
 
-Le périmètre organisation est donc indisponible avant même la lecture Master Data. Les droits de lecture/écriture quotes restent NON TESTÉS ; ne pas confondre ce résultat avec un refus Master Data ni avec le flag checkout non identifié. Pas de substitution par customerId ou email acheteur : le contrat existant stocke person.email dans organizationId.
+POST `save-claim` reçoit id UUID, révision attendue, orderId, action draft/submit et formulaire validé. Session/origine contrôlées ; la commande est relue sous identité acheteur. Stockage par empreinte utilisateur/unité/contrat ; données de pièces recopiées depuis OMS, maximum 200 lignes et 100 dossiers par périmètre. Révision et empreinte de payload rendent la répétition identique sans doublon ; un dossier soumis ne s’édite plus. Redis en production, mémoire en développement. Pas de pièce jointe ni de service externe de ticketing.
 
-Correctif local : absence de contexte reconnue comme QUOTE_ORGANIZATION_MISSING (409), message explicite au lieu de CUSTOM_QUOTES_FORMAT. Test ciblé réussi : aucun appel quotes sans organisation ; isolation utilisateur/organisation et refus API toujours couverts.
+## Références de provenance
 
-Question technique à transmettre : « Pour volvoemea / WanderGarage, le login B2B est valide mais /api/sessions ne fournit pas profile.email, même après POST puis PATCH avec cookies conservés et X-FORWARDED-HOST www.emeafaststore.com. Le parcours create-quote utilise person.email comme organizationId. Quelle étape initialise ce champ, ou quelle source serveur fournit exactement la même valeur ? Le flag checkout conditionne-t-il cette transformation de session ? »
+Sources FastStore inspectées historiquement dans `/Users/williamjeanne/faststore-volvo/faststore-volvoemea` : `src/graphql/thirdParty/resolvers/queryResolver.ts`, `src/features/replenishment-lists/lib/replenishmentApi.ts`, `src/features/quotes/hooks/useQuotesList.ts`, clients commerce de `@faststore/api`. Leur présence est une référence d’intégration, pas une garantie de stabilité de toutes les routes.
 
-
-## 21 septembre — qualification réelle des listes
-
-Source locale comparée : replenishmentApi.ts utilise bien getLists/getListItems et provider vtex.replenishment-service@1.x, comme le portail. Authentification WanderGarage réussie. Requête portail complète puis minimale getLists { id } : HTTP 400 GraphQL validation failed sur www.emeafaststore.com. Même requête minimale sur volvoemea.myvtex.com : même erreur. Aucun appel d’écriture, aucune modification d’installation.
-
-Conclusion bornée : le contrat appelé n’est pas accepté sur les deux chemins testés. Ce n’est pas une liste vide ni un refus d’accès établi. L’absence d’installation, une version différente ou un problème de composition du schéma ne sont pas distinguables avec cette réponse sans détail. Ne pas remplacer les listes par l’entité historique PL ou un accès Master Data administratif.
-
-Correctif : code LISTS_CONTRACT_UNAVAILABLE et message expliquant la vérification du contrat nécessaire, au lieu d’une invitation générique à réessayer. JSON invalide traité en LISTS_RESPONSE. Tests ciblés distinguent contrat rejeté, refus 403 et réponse invalide.
-
-À transmettre à l’équipe VTEX : « Sur volvoemea, avec WanderGarage authentifié, POST /_v/private/graphql/v1 et query { getLists @context(provider: "vtex.replenishment-service@1.x") { id } } renvoient HTTP 400 GraphQL validation failed, sur www.emeafaststore.com et volvoemea.myvtex.com. Pouvez-vous confirmer l’app/version active, le workspace et le contrat de lecture des listes, ou fournir une requête fonctionnelle du parcours ? »
+Détails des sondages et questions anciennes dans [l’archive des sources](archive/2026-09-25/SOURCES_PARCOURS.md). Ne relancer un diagnostic que sur information nouvelle ou échec actuel.

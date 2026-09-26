@@ -2,7 +2,7 @@
 
 > Mise à jour de phase : William a autorisé le démarrage de la réalisation locale après ce cadrage. Les mentions de phase documentaire ci-dessous sont historiques. Voir [le suivi de réalisation](../docs/SUIVI_REALISATION.md) pour l’état implémenté et les limites actuelles.
 
-> Current project instructions: [START.md](../START.md) and [active framing](../docs/CADRAGE_PORTAIL_VOLVO.md). Images remain visual references; their sample names, navigation variations, financial values and unsupported business assertions are not implementation requirements. No coding is authorized in the current documentation phase.
+> Current project instructions: [START.md](../START.md) and [active framing](../docs/CADRAGE_PORTAIL_VOLVO.md). Images remain visual references; their sample names, navigation variations, financial values and unsupported business assertions are not implementation requirements. Development and deployment have since been authorized and performed. See the active plan for the current local/production split.
 
 This package is the approved design and product context for the Volvo Trucks customer-facing B2B portal demo.
 

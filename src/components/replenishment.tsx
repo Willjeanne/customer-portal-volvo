@@ -37,14 +37,14 @@ export async function ReplenishmentLists({
       </section>
     );
   return (
-    <section className="detail-panel">
+    <section className="detail-panel replenishment-lists">
       <h2>Your saved lists</h2>
       <CreateList />
       {!result.data.length ? (
         <p>No replenishment lists found.</p>
       ) : (
         result.data.map((list) => (
-          <article key={list.id}>
+          <article className="replenishment-list-card" key={list.id}>
             <h3>{list.name}</h3>
             <p>{list.description}</p>
             <p>

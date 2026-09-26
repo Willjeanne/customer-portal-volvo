@@ -1,3 +1,5 @@
+import { Insights } from "@/components/insights";
+import { Claims } from "@/components/claims";
 import { Organization } from "@/components/organization";
 import { Preparation, ReplenishmentLists } from "@/components/replenishment";
 import { Quotes } from "@/components/quotes";
@@ -27,7 +29,9 @@ export default async function Page({
   params: Promise<{ section: string }>;
   searchParams: Promise<{
     page?: string | string[];
+    period?: string;
     order?: string;
+    request?: string;
     list?: string;
     status?: string;
     label?: string;
@@ -45,6 +49,7 @@ export default async function Page({
     typeof query.page === "string" && /^[1-9][0-9]{0,2}$/.test(query.page)
       ? Number(query.page)
       : 1;
+  if (section === "services") redirect("/insights");
   const item = navigation.find((entry) => entry.slug === section);
   if (!item) notFound();
   const session = await getSession();
@@ -96,7 +101,9 @@ export default async function Page({
           <p className="eyebrow">WANDERGARAGE · CUSTOMER PORTAL</p>
           <h1>{item.label}</h1>
           {/* >>> CLAUDE — lot find parts, 20/09/2026 — à relire */}
-          {section === "parts" ? (
+          {section === "insights" ? (
+            <Insights session={session} period={query.period} />
+          ) : section === "parts" ? (
             <FindParts
               issue={typeof query.issue === "string" ? query.issue : undefined}
               session={session}
@@ -125,6 +132,17 @@ export default async function Page({
                 typeof query.order === "string" ? query.order : undefined
               }
               listId={typeof query.list === "string" ? query.list : undefined}
+            />
+          ) : section === "claims" ? (
+            <Claims
+              requestId={
+                typeof query.request === "string" ? query.request : undefined
+              }
+              session={session}
+              page={pageNumber}
+              orderId={
+                typeof query.order === "string" ? query.order : undefined
+              }
             />
           ) : section === "lists" ? (
             <ReplenishmentLists session={session} />

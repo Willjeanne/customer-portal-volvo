@@ -1,3 +1,4 @@
+import { orderStatusLabel } from "@/domain/order";
 import Link from "next/link";
 import type { PortalSession } from "@/server/session-store";
 import { getBuyerProfile, listBuyerOrders } from "@/server/account";
@@ -23,7 +24,7 @@ export async function BuyerOrders({ session, page }: { session: PortalSession; p
   if (!result.data) return <LoadError error={result.error} href={`/orders?page=${page}`} />;
   const orders = result.data;
     return <section className="detail-panel"><span className="tag">VTEX ORDERS</span><h2>Your order history</h2><p>{orders.paging.total} orders available to your current account</p>
-      {orders.list.length === 0 ? <p>No orders found on this page.</p> : <div style={{ overflowX: "auto" }}><table className="orders-table"><thead><tr><th>Order</th><th>Placed</th><th>Status</th><th>Total</th></tr></thead><tbody>{orders.list.map((order) => <tr key={order.orderId}><td><Link href={`/orders/${encodeURIComponent(order.orderId)}`}>{order.orderId}</Link></td><td>{new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "America/Chicago" }).format(new Date(order.creationDate))}</td><td>{order.statusDescription || order.status}</td><td>{order.currencyCode ? new Intl.NumberFormat("en-US", { style: "currency", currency: order.currencyCode }).format(order.totalValue / 100) : `${(order.totalValue / 100).toFixed(2)} · currency unavailable`}</td></tr>)}</tbody></table></div>}
+      {orders.list.length === 0 ? <p>No orders found on this page.</p> : <div style={{ overflowX: "auto" }}><table className="orders-table"><thead><tr><th>Order</th><th>Placed</th><th>Status</th><th>Total</th></tr></thead><tbody>{orders.list.map((order) => <tr key={order.orderId}><td><Link href={`/orders/${encodeURIComponent(order.orderId)}`}>{order.orderId}</Link></td><td>{new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "America/Chicago" }).format(new Date(order.creationDate))}</td><td>{orderStatusLabel(order.status)}</td><td>{order.currencyCode ? new Intl.NumberFormat("en-US", { style: "currency", currency: order.currencyCode }).format(order.totalValue / 100) : `${(order.totalValue / 100).toFixed(2)} · currency unavailable`}</td></tr>)}</tbody></table></div>}
       <nav aria-label="Order pages" className="order-pagination">{page > 1 && <Link className="button secondary" href={`/orders?page=${page - 1}`}>Previous</Link>}<span>Page {page} of {Math.max(orders.paging.pages, 1)}</span>{page < orders.paging.pages && <Link className="button secondary" href={`/orders?page=${page + 1}`}>Next</Link>}</nav>
       <p className="form-note">Open an order for its items, shipment tracking and available invoices.</p>
     </section>;

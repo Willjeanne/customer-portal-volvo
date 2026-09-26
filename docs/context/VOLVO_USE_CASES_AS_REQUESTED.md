@@ -1,5 +1,7 @@
 # Volvo eCom THINKIT — The Use Cases Volvo Asked For
 
+> **Source des besoins Volvo, conservée sans réécriture métier — 25 septembre 2026.** Pour la réponse implémentée et les écarts, consulter la [matrice actuelle](../MATRICE_CAPACITES_VOLVO.md) ; ce document n’est pas un bilan de livraison.
+
 **What this is.** A faithful restatement of the nine use cases Volvo defined in *"Volvo request for workshop 2 — Ecom thinkit Kick off, Week 40"* (Volvo, 9 September 2026).
 
 **What this is not.** There is no VTEX position in this document, no demo plan, no implementation view. It contains only what Volvo asked for, in Volvo's own framing, so that any plan can be checked against it.

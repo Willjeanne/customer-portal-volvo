@@ -1,23 +1,41 @@
 # Volvo Customer Portal
 
-Portail B2B Volvo indépendant, compte cible `volvoemea`, démonstration WanderGarage. Le périmètre et les six tranches restent dans [START.md](START.md). Cette première livraison démarre la tranche 1 ; elle ne termine pas la couverture My Account.
+Portail B2B Volvo indépendant : Next.js 16.3.5, React 19.3, TypeScript et BFF intégré. Compte VTEX `volvoemea`, démonstration WanderGarage. [État fonctionnel](docs/MATRICE_CAPACITES_VOLVO.md) · [Plan](docs/CADRAGE_PORTAIL_VOLVO.md) · [Démo](docs/DEMO-VOLVO.md).
 
 ## Démarrer en local
 
-Node 24, npm. Depuis ce dossier :
+Node **24**, npm. À la première installation seulement :
 
 ```sh
 npm ci
+# Seulement si .env.local n’existe pas déjà :
 cp .env.example .env.local
-npm run dev
 ```
 
-Ouvrir **http://127.0.0.1:3000**. Utiliser cette origine exacte pour les contrôles CSRF. Le serveur écoute uniquement sur la boucle locale.
+Puis lancer le portail sur le port de travail 3001 :
 
-- **Local preview** : sessions séparées Buyer/Admin/Approver/Procurement, données et droits synthétiques explicitement signalés. Le changement Dallas/Chicago teste le contexte et efface le véhicule précédent ; il ne décrit pas les appartenances VTEX réelles.
-- **VTEX sign-in** : adaptateur expérimental local vers le login B2B Authenticator déjà déployé. Saisir les accès dans le navigateur. Aucun secret dans un fichier ou la conversation. L’adaptateur vise authentification, accès Buyer Portal, unité et contrat ; validation avec un compte réel encore attendue.
-- Profil et organisation : lecture du contexte de session seulement. Édition du profil, droits effectifs et services métier restent à connecter.
-- Les autres destinations affichent explicitement leur tranche à venir. Les commandes, devis, listes, paiements et claims ne sont pas implémentés.
+```sh
+PORTAL_ORIGIN=http://127.0.0.1:3001 npx next dev --hostname 127.0.0.1 --port 3001
+```
+
+Ouvrir http://127.0.0.1:3001/login et saisir les accès dans le navigateur. `npm run dev` et `.env.example` conservent leur défaut **3000** : la commande ci-dessus remplace explicitement le port et l’origine. Ne pas mélanger `localhost` et `127.0.0.1`, ni les ports. Le port 3000 peut être utilisé par un autre projet.
+
+Local preview fournit des personas/données synthétiques ; la connexion VTEX utilise l’identité réelle. Les sessions ont une durée de quatre heures, sous réserve de validité de la session VTEX. Sessions, paniers référencés et dossiers de démo locaux en mémoire peuvent être perdus au redémarrage/rechargement serveur.
+
+## Configuration
+
+| Variable | Usage |
+|---|---|
+| `PORTAL_ORIGIN` | Origine exacte du portail pour les mutations |
+| `PORTAL_ENABLE_VTEX_LOGIN` | Activer la connexion VTEX (`true`) |
+| `PORTAL_ENABLE_PREVIEW` | Aperçu synthétique local ; `false` en production |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Stockage partagé production, jeton lecture/écriture |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Alias acceptés pour l’intégration Redis Marketplace |
+| `NEXT_PUBLIC_WENI_CHANNEL_UUID` | Canal public WWC de l’AI Assistant |
+| `NEXT_PUBLIC_WENI_SOCKET_URL` | WebSocket Weni |
+| `NEXT_PUBLIC_WENI_FLOWS_ORIGIN` | Origine Flows Weni |
+
+Les origines du portail doivent être autorisées côté canal Weni. Les variables `NEXT_PUBLIC_*` sont intégrées au build. Ne pas recopier de secrets dans les documents ; les valeurs du projet se configurent dans l’environnement local/Vercel.
 
 ## Vérification
 
@@ -25,28 +43,37 @@ Ouvrir **http://127.0.0.1:3000**. Utiliser cette origine exacte pour les contrô
 npm run typecheck
 npm run lint
 npm test
-# Avec npm run dev actif, test HTTP local supplémentaire :
-PORTAL_INTEGRATION_TESTS=true npm test
 npm run build
+# Test HTTP optionnel, avec le serveur 3001 actif :
+PORTAL_TEST_ORIGIN=http://127.0.0.1:3001 PORTAL_INTEGRATION_TESTS=true npm test
 ```
 
-Le build production est vérifié, mais la connexion est volontairement désactivée hors du mode développement : cette première version ne doit pas être déployée pour un usage connecté. Les sessions locales expirent après 30 minutes et disparaissent au redémarrage. La déconnexion révoque la session du portail, pas celle d’un autre site VTEX.
-
-## Structure
-
-- `src/app` : pages Next.js et endpoints BFF strictement limités.
-- `src/domain` : contexte, navigation et fixtures de démonstration.
-- `src/server` : sessions, contrôles d’origine et adaptateur B2B local.
-- `src/components` : interface Volvo responsive.
-- `tests` : contrôles de permissions, sessions et API locale.
-- `docs/SUIVI_REALISATION.md` : état réel, preuves, limites et prochaines étapes.
+Choisir les tests selon le lot ; ne pas refaire une recette navigateur complète à chaque modification. Le [suivi](docs/SUIVI_REALISATION.md) distingue tests, captures utilisateur et parcours restant à recetter.
 
 ## GitHub et Vercel
 
-Origine : https://github.com/Willjeanne/customer-portal-volvo.git. Dépôt accessible et vide au démarrage. Le remote est configuré localement ; aucun push n’a été effectué.
+Repo : https://github.com/Willjeanne/customer-portal-volvo. Projet Vercel : `customer-portal-volvo`, équipe `williams-projects-5f41c690`. Production : https://customer-portal-volvo.vercel.app.
 
-Vercel CLI est connecté à `willjeanne` : Codex pourra créer et lier le projet lors de la phase de publication. Il reste à choisir l’équipe cible si nécessaire, qualifier l’authentification HTTPS et remplacer le stockage de session local. Aucun projet/domaine/déploiement Vercel créé.
+La connexion production fonctionne avec Redis. Configurer l’origine HTTPS exacte, login `true`, preview `false`, puis les variables Redis REST dans Vercel. Un push sur la branche de production déclenche le déploiement Git lié ; contrôler son état Ready et son commit avant d’annoncer une publication. Une modification locale n’est pas automatiquement en production. Dernier état publié confirmé : `2146772` ; voir [CLAUDE.md](CLAUDE.md) pour les différences locales.
 
-## Sources visuelles
+## Purchasing Insights
 
-Maquette de l’accueil : `Design/assets/screens/01-home-buyer.png`. Tokens provisoires du pack conservés ; navigation du cadrage actif prioritaire. Wordmark fourni localement dans `Downloads/volvo logo.png`, copié dans `public/assets`. Camion illustratif généré pour cet aperçu, sans valeur de preuve de flotte ou de fitment. Icônes Phosphor, police Inter fournie par `@fontsource/inter`.
+Nouvel écran local `/insights`, à la place de Contracts & Services. Analyse des achats, remises traçables, détails catalogue et comparaison d’offres. [Qualification, calculs et recette](docs/PURCHASING-INSIGHTS.md). Pas encore publié.
+
+## Structure et limites
+
+- `src/app` : pages et endpoint BFF `/api/portal/[operation]`.
+- `src/domain` : schémas, règles, protocoles et fixtures.
+- `src/server` : services VTEX, sessions et stockage des dossiers de démo.
+- `src/components` : interface Volvo, checkout et AI Assistant.
+- `tests` : tests automatisés ; `Design` : références ; `docs` : état et sources.
+
+Checkout intégré : soumission Promissory ; autres moyens retournés par VTEX visibles mais non raccordés à la soumission. Claims : dossiers internes de démonstration, sans service SAV connecté. Devis : lecture filtrée codée, qualification du contexte encore ouverte ; aucune création/conversion. Liste exhaustive dans la matrice.
+
+## Dépannage rapide
+
+- Site inaccessible : vérifier le processus et le port 3001 ; un terminal fermé peut arrêter le serveur.
+- `This request did not originate from the local portal` : aligner l’URL du navigateur et `PORTAL_ORIGIN`, puis redémarrer le serveur avec la commande ci-dessus.
+- `Local validation is not enabled on this deployment` : vérifier l’origine de production et les variables Redis REST ; ne pas activer l’aperçu pour contourner le problème.
+- Session expirée : se reconnecter ; une erreur de session n’est pas une preuve de blocage budgétaire.
+- Commande incertaine : vérifier son état avant une nouvelle tentative ; ne pas contourner le verrou de soumission.

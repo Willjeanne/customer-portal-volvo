@@ -1,5 +1,7 @@
 # Lots Claude — document de reprise
 
+> **Statut au 25 septembre 2026 : lots 1–3 relus par Codex et intégrés.** Les avertissements « à relire » ci-dessous appartiennent à la remise initiale ; ils ne signifient pas que le lot reste en attente. Les évolutions de scénarios Truck 147/203 et les limites courantes figurent dans la [matrice](MATRICE_CAPACITES_VOLVO.md) et la [démo](DEMO-VOLVO.md). Ce handoff conserve les mesures techniques d’origine.
+
 **Deux lots** sont documentés ici : « flotte de démonstration » puis « find parts ».
 Les deux ont été écrits le 20 septembre 2026 et **ne sont pas relus**.
 

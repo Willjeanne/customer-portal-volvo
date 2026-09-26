@@ -1,5 +1,6 @@
 "use client";
 import {
+  ChartBar,
   House,
   Truck,
   MagnifyingGlass,
@@ -38,6 +39,7 @@ import {
   // <<< CLAUDE
 } from "@phosphor-icons/react";
 const icons = {
+  ChartBar,
   House,
   Truck,
   MagnifyingGlass,

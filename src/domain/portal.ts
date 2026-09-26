@@ -40,7 +40,7 @@ export const navigation = [
     permission: "approve",
   },
   { slug: "claims", label: "Returns & Claims", icon: "ArrowUUpLeft" },
-  { slug: "services", label: "Contracts & Services", icon: "Certificate" },
+  { slug: "insights", label: "Purchasing Insights", icon: "ChartBar" },
   { slug: "organization", label: "My Organization", icon: "UsersThree" },
   { slug: "payments", label: "Payment Methods", icon: "CreditCard" },
   { slug: "support", label: "Support / Dealer", icon: "Headset" },

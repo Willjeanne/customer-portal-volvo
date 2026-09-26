@@ -1,5 +1,7 @@
 # Revue des lots flotte et recherche — 20 septembre 2026
 
+> **Revue historique — statut au 25 septembre 2026.** Les correctifs du lot 3 ont été rendus et intégrés, ainsi que l’ajout atomique côté Codex. Les limites encore ouvertes (premier SKU, seller, fitment et plafond catalogue) sont recensées dans la [matrice actuelle](MATRICE_CAPACITES_VOLVO.md). Les points ci-dessous sont la trace de revue, pas une liste de tâches toutes encore ouvertes.
+
 Relecture Codex sur le code présent et HANDOFF-FLOTTE.md. Intégration au plan **avec réserves**, sans modification applicative dans cette revue. Les déclarations de validation navigateur sont celles de Claude ; aucune recette connectée de ces deux lots n’est encore confirmée par William.
 
 ## Changements acceptés

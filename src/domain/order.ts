@@ -17,3 +17,26 @@ export function documentLink(value: string | null | undefined): string | null {
 export function orderMoney(value: number, currency?: string | null) {
   return currency ? new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value / 100) : `${(value / 100).toFixed(2)} · currency unavailable`;
 }
+
+const englishOrderStatuses: Record<string, string> = {
+  "order-created": "Order created",
+  "on-order-completed": "Order completed",
+  "payment-pending": "Payment pending",
+  "waiting-for-order-authorization": "Awaiting order authorization",
+  "waiting-for-authorization": "Awaiting authorization",
+  "approve-payment": "Awaiting payment approval",
+  "payment-approved": "Payment approved",
+  "request-cancel": "Cancellation requested",
+  "waiting-for-seller-confirmation": "Awaiting seller confirmation",
+  "window-to-cancel": "Cancellation window",
+  "ready-for-handling": "Ready for handling",
+  "start-handling": "Handling started",
+  handling: "Preparing order",
+  invoiced: "Invoiced",
+  canceled: "Canceled",
+  "cancellation-requested": "Cancellation requested",
+  "cancelation-requested": "Cancellation requested",
+};
+export function orderStatusLabel(status: string): string {
+  return englishOrderStatuses[status] || "Status unavailable";
+}

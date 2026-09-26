@@ -1,37 +1,28 @@
 # Volvo Customer Portal — commencer ici
 
-Mis à jour le 20 septembre 2026 après la revue de code et l’ajustement de méthode.
+État documentaire consolidé le **25 septembre 2026**. Le portail est développé et déjà publié ; il ne s’agit plus d’une phase d’initialisation.
 
-**Phase actuelle : démarrage de la réalisation locale autorisé par William le 18 septembre 2026.** Initialisation, code et vérifications locales sont autorisés. GitHub cible : `Willjeanne/customer-portal-volvo`. Déploiement Vercel prévu après les validations locales ; aucune publication réalisée. Les anciennes mentions « documentation uniquement » décrivent la phase précédente et sont remplacées par cette autorisation. Les changements métier/configuration du compte VTEX restent hors de ce démarrage.
+Objectif : démonstration Volvo avec le compte VTEX `volvoemea` et WanderGarage, dans un portail indépendant. Les données commerce viennent de VTEX ; la flotte et les alertes restent des fixtures. Le site emeafaststore sert de référence d’intégration, sans imposer son interface.
 
-Lire [CLAUDE.md](CLAUDE.md) pour comprendre en une lecture l’avancement, les difficultés et la prochaine reprise ; [README.md](README.md) pour lancer le portail ; [le suivi de réalisation](docs/SUIVI_REALISATION.md) pour les preuves techniques détaillées.
+## Lecture recommandée
 
-L’objectif est de démontrer les use cases Volvo avec VTEX et du code custom dans une interface Volvo indépendante du site existant. Compte : `volvoemea`. Organisation de démonstration : WanderGarage. Le site existant reste une référence en lecture seule et conserve le parcours anonyme avec guest checkout. Le checkout est une dépendance partagée : ne pas reprendre son diagnostic.
+1. [CLAUDE.md](CLAUDE.md) — état de reprise, limites et prochaine action en une lecture.
+2. [README.md](README.md) — démarrage, configuration, vérification et déploiement.
+3. [Plan global](docs/CADRAGE_PORTAIL_VOLVO.md) — périmètre et ordre des travaux.
+4. [Script de démo](docs/DEMO-VOLVO.md) — parcours à présenter et recette courte.
+5. [Matrice des capacités](docs/MATRICE_CAPACITES_VOLVO.md) — réalisé, démontré, simulé, ouvert.
 
-Revue des travaux parallèles : [réserves flotte/parts](docs/REVUE-FLOTTE-PARTS.md) et [mission proposée à Claude](docs/LOT-CLAUDE-SUIVANT.md). Le plan global reste dans le cadrage.
+[Coordination](docs/COORDINATION.md), [décisions](docs/DECISIONS_PORTAIL_VOLVO.md), [sources techniques](docs/SOURCES_PARCOURS.md) et [suivi des preuves](docs/SUIVI_REALISATION.md) complètent ces documents.
 
-## Documents actifs
+## Local et production
 
-1. [Cadrage et plan de réalisation](docs/CADRAGE_PORTAIL_VOLVO.md) : périmètre, architecture, navigation canonique, parcours et tranches.
-2. [Matrice des capacités](docs/MATRICE_CAPACITES_VOLVO.md) : fonctions My Account et Volvo, services, preuves et points à vérifier au fil de la réalisation.
-3. [Registre des décisions](docs/DECISIONS_PORTAIL_VOLVO.md) : décisions confirmées, direction technique et limites de l’autorisation actuelle.
+- Local de travail : http://127.0.0.1:3001/login ; commande exacte dans README.
+- Production : https://customer-portal-volvo.vercel.app/login.
+- GitHub : https://github.com/Willjeanne/customer-portal-volvo.
+- Dernière publication confirmée dans le suivi : `2146772`. Purchasing Insights, les nouveaux Returns & Claims, l’espacement Lists et les statuts anglais sont encore locaux. L’état distant n’a pas été réinterrogé lors de cette mise à jour documentaire.
 
-## Références
+## Règles de travail
 
-- [Démarrage historique](docs/VOLVO_CUSTOMER_PORTAL_START.md) : provenance, structure et identifiants WanderGarage, relevés datés. Ne pas interpréter ces relevés comme l’état courant du compte.
-- [Besoins Volvo](docs/context/VOLVO_USE_CASES_AS_REQUESTED.md) et [scope source](docs/context/Volvo_Customer_Portal_Demo_Feature_Scope.md).
-- [Pack design](Design/README.md) : visuels et tokens provisoires. Sa copie du scope est un snapshot ; le cadrage actif résout les différences de navigation, noms, montants et comportements.
+Conserver le design convenu et l’IA du collègue CX. Travailler par lots ciblés, regrouper les contrôles utiles et laisser la recette des parcours à William. Documenter les limites sans déclarer une fonction validée sur la seule présence de code. My Organization et sa recette avancée sont reportés après la démo Volvo. Les devis restent ouverts ; le checkout Promissory a, lui, produit une commande réelle confirmée par William.
 
-Les instructions courantes de William priment, puis les documents actifs pour les décisions projet. Préserver les sources historiques sans entretenir plusieurs spécifications concurrentes.
-
-## Règles pour la suite
-
-La section 6 du cadrage décrit l’ordre opérationnel actualisé : confirmer les sources du prochain lot, terminer préparation/panier, puis commandes/devis, entreprise, Volvo et publication. William assure la recette manuelle ; l’agent regroupe les contrôles automatiques et limite le navigateur aux diagnostics ciblés.
-
-- Aucune fonction My Account prévue n’est retirée : commandes, reordering, quick order/import, listes, devis, organisation, droits, adresses, paiements, budgets, approbations, comptabilité et profil.
-- Réutiliser les services VTEX ; compléter par une extension custom ciblée si nécessaire. Ne pas réduire automatiquement une fonction à un storyboard faute d’API native.
-- Direction privilégiée : Next.js/React/TypeScript avec BFF ; Vercel proposé. La première vérification technique portera sur session, contexte et permissions, après autorisation de réalisation.
-- Conserver les preuves réelles et les fixtures distinctes, sans exiger une qualification exhaustive avant chaque progrès.
-- Ni date d’atelier ni matrice exhaustive des questions Volvo ne bloquent le démarrage. Traiter les choix courants et corrections visuelles dans leur tranche.
-- Soumettre à William seulement les retraits ou réductions nommés, changements de périmètre et blocages concrets nécessitant une décision.
-- Appliquer les skills William et VTEX pertinents. Aucun secret dans la documentation, le code ou les fixtures.
+Les sources Volvo dans [docs/context](docs/context/) et le [pack Design](Design/README.md) décrivent les besoins et les références visuelles, pas la couverture livrée. Les anciens bilans sont conservés dans [les archives](docs/archive/README.md), sans faire autorité sur l’état courant. Les instructions utilisateur courantes priment.

@@ -1,5 +1,7 @@
 # Lot proposé à Claude — fiabiliser flotte / Find Parts
 
+> **Mission terminée et intégrée — 25 septembre 2026.** Ce document est le brief historique du lot 3 flotte/parts ; ne pas le relancer comme « lot suivant ». Résultats dans [HANDOFF-FLOTTE](HANDOFF-FLOTTE.md), affectations actuelles dans [COORDINATION](COORDINATION.md).
+
 Mission prête à transmettre par William ; aucun message externe envoyé et aucun agent lancé. Codex conserve le plan global et les services panier/devis/droits.
 
 ## Périmètre et fichiers réservés

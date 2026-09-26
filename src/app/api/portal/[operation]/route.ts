@@ -1,3 +1,8 @@
+import {
+  comparePurchasedOffers,
+  readPurchasedProduct,
+} from "@/server/insights";
+import { saveClaim } from "@/server/claims";
 import { populateBuyerList } from "@/server/list-items";
 import { createBuyerList, getBuyerLists } from "@/server/lists";
 import { updatePayment, placeOrder } from "@/server/checkout-payment";
@@ -138,9 +143,13 @@ async function handlePOST(
     const raw = await request.text();
     if (
       raw.length >
-      (["draft", "prepare-cart", "checkout-shipping", "populate-list"].includes(
-        (await params).operation,
-      )
+      ([
+        "draft",
+        "prepare-cart",
+        "checkout-shipping",
+        "populate-list",
+        "save-claim",
+      ].includes((await params).operation)
         ? 30000
         : 4096)
     )
@@ -221,6 +230,9 @@ async function handlePOST(
       operation === "checkout-shipping" ||
       operation === "populate-list" ||
       operation === "create-list" ||
+      operation === "save-claim" ||
+      operation === "insight-offers" ||
+      operation === "insight-product" ||
       operation === "create-cost-center" ||
       operation === "create-organization-user"
     ) {
@@ -240,6 +252,11 @@ async function handlePOST(
                 "Your buyer context changed. Please sign in again.",
               );
           }
+          if (operation === "insight-product")
+            return readPurchasedProduct(session, body);
+          if (operation === "insight-offers")
+            return comparePurchasedOffers(session, body);
+          if (operation === "save-claim") return saveClaim(session, body);
           if (operation === "populate-list")
             return populateBuyerList(session, body);
           if (operation === "create-list")
